@@ -45,6 +45,7 @@ def prompt_for(role):
         '실제 작업은 이후 PM의 명시적 할당과 사용자 요청 범위에 따라 진행한다. '
         '세션 간 공유 기록은 docs를 사용한다. 민감값을 기록하지 마라. '
         f'다른 역할 세션의 이름은 {project.session_prefix(PRODUCT_ROOT)}-<role>이며 {sendable}에 메시지를 보낼 수 있다. '
+        '문서에 다른 세션 이름이 남아 있더라도 이 입력에 명시한 프로젝트 세션 이름만 사용한다. '
         '사용자와 직접 소통하는 역할은 PM뿐이다. PM은 요청·질문·진행·승인·결과를 취합한다. '
         '다른 역할은 준비 상태와 질문·완료·차단 사유를 PM에게 보고하고 사용자에게 직접 입력을 요구하지 마라. '
         'QA는 Codex라 메시지 대상이 아니다. PM이 통신 연결 부재를 차단 사유로 관리하며 사용자에게 중계를 요구하지 마라.'
@@ -102,6 +103,7 @@ def read_state(role):
 
 
 def write_state(role, data):
+    data = dict(data, project=str(PRODUCT_ROOT), sessionName=session_name(role))
     target = STATE / f'{role}.json'
     temporary = STATE / f'{role}.{os.getpid()}.tmp'
     temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
@@ -209,7 +211,7 @@ def launch(provider, dry_run=False):
                 else:
                     open_terminal(role, executables[ROLES[role][0]])
                 started.append(role)
-            except (subprocess.SubprocessError, OSError) as error:
+            except (subprocess.SubprocessError, OSError, RuntimeError) as error:
                 write_state(role, dict(status='FAILED', time=time.time()))
                 failed.append(role)
                 print(f'{role}: launch failed: {error}', file=sys.stderr)

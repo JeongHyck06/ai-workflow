@@ -88,19 +88,17 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(targets[0],targets[1])
         self.assertTrue(targets[0].is_file())
 
-    def test_start_launches_team_then_monitor(self):
-        from types import SimpleNamespace
+    def test_start_delegates_team_start_to_live_monitor(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ', {}, clear=True), \
                 patch.object(workflow.sys, 'argv', ['workflow.py', 'start', '--project', temp]), \
                 patch.object(workflow, 'initialize') as initialize, \
-                patch.object(workflow.socket, 'socket'), \
-                patch.object(workflow.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as team, \
                 patch.object(workflow.os, 'execv') as monitor:
             workflow.main()
             initialize.assert_called_once_with(Path(temp).resolve())
-            self.assertIn('team', team.call_args.args[0])
-            self.assertEqual(team.call_args.kwargs['cwd'], workflow.WORKFLOW)
-            self.assertIn(str(workflow.WORKFLOW/'tools/team/dashboard.py'),monitor.call_args.args[1])
+            command = monitor.call_args.args[1]
+            self.assertIn('--launch-team', command)
+            self.assertNotIn('--port', command)
+            self.assertIn(str(workflow.WORKFLOW/'tools/team/dashboard.py'), command)
 
     def test_roles_use_tool_cwd_and_explicit_product_paths(self):
         import launch
@@ -151,7 +149,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_same_named_projects_have_distinct_role_names(self):
         self.assertNotEqual(project.session_prefix(Path('/one/todo')),project.session_prefix(Path('/two/todo')))
-        self.assertEqual(project.session_prefix(project.WORKFLOW),'vive')
+        self.assertNotEqual(project.session_prefix(project.WORKFLOW),'vive')
 
     def test_fresh_clone_starts_for_parent_project_without_inherited_data(self):
         import json
@@ -188,3 +186,48 @@ class WorkflowTests(unittest.TestCase):
             finally:
                 process.terminate();process.wait(timeout=5)
                 process.stdout.close();process.stderr.close()
+
+    def test_two_monitors_are_isolated_and_repeat_start_reuses_url(self):
+        import json
+        import os
+        import select
+        import shutil
+        import subprocess
+        import sys
+        import time
+        from urllib.request import urlopen
+        with tempfile.TemporaryDirectory() as temp:
+            processes = []
+            urls = []
+            try:
+                for name in ('one', 'two'):
+                    root = Path(temp).resolve()/name/'todo'
+                    clone = root/'ai-workflow-main'
+                    clone.mkdir(parents=True)
+                    shutil.copy2(project.WORKFLOW/'workflow.py', clone/'workflow.py')
+                    for folder in ('tools', 'templates'):
+                        shutil.copytree(project.WORKFLOW/folder, clone/folder,
+                                        ignore=shutil.ignore_patterns('__pycache__'))
+                    command = [sys.executable, str(clone/'workflow.py'), 'start', '--monitor-only']
+                    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    processes.append(process)
+                    output = b''
+                    deadline = time.monotonic()+10
+                    while b'Team Monitor: http://' not in output and time.monotonic()<deadline:
+                        if select.select([process.stdout], [], [], .2)[0]:
+                            output += os.read(process.stdout.fileno(), 4096)
+                    self.assertIn(b'Team Monitor: http://', output)
+                    url = output.decode().split('Team Monitor: ')[-1].splitlines()[0]
+                    urls.append(url)
+                    with urlopen(url+'/api/resources', timeout=3) as response:
+                        self.assertEqual(json.load(response)['root'], str(root))
+                    repeated = subprocess.run(command, capture_output=True, text=True, timeout=10)
+                    self.assertEqual(repeated.returncode, 0, repeated.stderr)
+                    self.assertIn('이미 실행 중입니다. Team Monitor: '+url, repeated.stdout)
+                self.assertNotEqual(*urls)
+            finally:
+                for process in processes:
+                    process.terminate()
+                    process.wait(timeout=5)
+                    process.stdout.close()
+                    process.stderr.close()

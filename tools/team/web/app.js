@@ -5,7 +5,7 @@ let data = null, selected = 'pm', busy = false;
 const nodes = new Map();
 function render() {
   if (!data) return;
-  if(data.project){$('project-name').textContent='WORKSPACE / '+data.project.name;document.title='Team Monitor · '+data.project.name;}
+  if(data.project){$('project-name').textContent='WORKSPACE / '+data.project.root;document.title='Team Monitor · '+data.project.name;}
   for (const role of data.roles) {
     let button = nodes.get(role.role);
     if (!button) {

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Loopback-only team monitor with a PM-only terminal connection."""
 import argparse
+import errno
+import fcntl
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -20,6 +23,7 @@ from urllib.parse import urlparse, parse_qs
 from pm_terminal import Connections, belongs_to_project
 
 WEB = Path(__file__).with_name('web')
+TEAM_START = {'message': ''}
 ANSI = re.compile(r'\x1b\][^\x07]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]')
 
 
@@ -63,7 +67,9 @@ def snapshot():
                 return row
             current = live.get(launch.session_name(role))
             row['status'] = 'UNKNOWN' if error else ('RUNNING' if current else ('STOPPED' if state else 'NOT_STARTED'))
-            session = (current or {}).get('id') or state.get('session', '')
+            owned_state = (state.get('project') == str(launch.PRODUCT_ROOT) and
+                           state.get('sessionName') == launch.session_name(role))
+            session = (current or {}).get('id') or (state.get('session', '') if owned_state else '')
             if session and re.fullmatch(r'[a-zA-Z0-9-]+', session):
                 row['session'] = session
             if error:
@@ -88,7 +94,7 @@ def snapshot():
         issues = re.sub(r'```[\s\S]*?```', '', issues).strip()
     except OSError:
         issues = '진행 Issue 문서를 읽을 수 없습니다.'
-    return dict(roles=rows, issues=issues, updated=time.time(), error=error,
+    return dict(roles=rows, issues=issues, updated=time.time(), error=error or TEAM_START['message'],
                 project=dict(name=launch.PRODUCT_ROOT.name, root=str(launch.PRODUCT_ROOT)))
 
 
@@ -233,18 +239,64 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def bind_monitor(port=None):
+    ports = range(8765, 8865) if port is None else [port]
+    for candidate in ports:
+        try:
+            return ThreadingHTTPServer(('127.0.0.1', candidate), Handler)
+        except OSError as error:
+            if port is not None or error.errno != errno.EADDRINUSE:
+                raise
+    raise OSError('사용 가능한 웹 포트가 없습니다. --port로 지정하세요.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--port', type=int)
+    parser.add_argument('--launch-team', action='store_true')
+    parser.add_argument('--provider', choices=['all', 'claude', 'codex'], default='all')
     args = parser.parse_args()
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+    launch.STATE.mkdir(exist_ok=True, mode=0o700)
+    # Keep the lock for the complete server lifetime; stale metadata alone is not ownership.
+    with (launch.STATE / 'monitor.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            try:
+                info = json.loads((launch.STATE / 'monitor.json').read_text())
+                print(f"이미 실행 중입니다. Team Monitor: {info['url']}", flush=True)
+            except (OSError, ValueError, KeyError):
+                print('이 프로젝트의 모니터가 시작 중입니다. 기존 터미널의 주소를 확인하세요.', flush=True)
+            return
+        serve_monitor(args)
+
+
+def serve_monitor(args):
+    server = bind_monitor(args.port)
+    url = f'http://127.0.0.1:{server.server_port}'
+    (launch.STATE / 'monitor.json').write_text(json.dumps(dict(
+        url=url, project=str(launch.PRODUCT_ROOT), workflow=str(launch.ROOT))))
     def cleanup():
         while True:
             time.sleep(15)
             with connections.lock:
                 connections.reap()
     threading.Thread(target=cleanup, daemon=True).start()
-    print(f'Team Monitor: http://127.0.0.1:{server.server_port}', flush=True)
+    print(f'Project: {launch.PRODUCT_ROOT}\nTeam Monitor: {url}', flush=True)
+    if args.launch_team:
+        def start_team():
+            TEAM_START['message'] = '팀 세션을 초기화하고 있습니다. 준비된 역할부터 표시됩니다.'
+            try:
+                result = subprocess.run([sys.executable, str(launch.ROOT / 'tools/team/launch.py'),
+                                     'team', '--provider', args.provider], cwd=launch.ROOT,
+                                        env=launch.clean_env())
+                TEAM_START['message'] = ('팀 초기화에 실패했습니다. 실행 터미널의 CLI 오류를 확인하세요.'
+                                         if result.returncode else '')
+            except OSError:
+                TEAM_START['message'] = '팀 실행 프로세스를 시작하지 못했습니다. 실행 환경을 확인하세요.'
+            if TEAM_START['message']:
+                print(TEAM_START['message'], flush=True)
+        threading.Thread(target=start_team, daemon=True).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

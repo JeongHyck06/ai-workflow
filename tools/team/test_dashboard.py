@@ -18,8 +18,8 @@ class DashboardTests(unittest.TestCase):
             calls.append(args)
             if args[1] == 'agents':
                 return json.dumps([
-                    dict(id='correct', name='vive-pm', cwd=str(dashboard.launch.ROOT), kind='background'),
-                    dict(id='other', name='vive-frontend', cwd='/other', kind='background')])
+                    dict(id='correct', name=dashboard.launch.session_name('pm'), cwd=str(dashboard.launch.ROOT), kind='background'),
+                    dict(id='other', name=dashboard.launch.session_name('frontend'), cwd='/other', kind='background')])
             return '\x1b[32mhello\x1b[0m <script>example</script>'
         with tempfile.TemporaryDirectory() as folder, patch.object(dashboard.launch, 'STATE', Path(folder)), patch.object(dashboard, 'command', run), patch.object(dashboard.shutil, 'which', return_value='claude'):
             rows = {r['role']:r for r in dashboard.snapshot()['roles']}
@@ -29,6 +29,17 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(rows['frontend']['status'], 'NOT_STARTED')
         self.assertFalse(any('other' in c for c in calls))
         self.assertTrue(rows['qa']['message'])
+
+    def test_foreign_saved_session_is_not_read(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(dashboard.launch, 'STATE', Path(folder)), \
+                patch.object(dashboard, 'command', return_value='[]') as command, \
+                patch.object(dashboard.shutil, 'which', return_value='claude'):
+            (Path(folder)/'pm.json').write_text(json.dumps(dict(
+                session='foreign-session', project='/other',
+                sessionName=dashboard.launch.session_name('pm'))))
+            rows = {r['role']:r for r in dashboard.snapshot()['roles']}
+            self.assertEqual(rows['pm']['session'], '')
+            self.assertFalse(any('foreign-session' in call.args[0] for call in command.call_args_list))
 
     def test_cli_failure_is_unknown(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(dashboard.launch, 'STATE', Path(folder)), patch.object(dashboard, 'command', side_effect=RuntimeError('offline')), patch.object(dashboard.shutil, 'which', return_value='claude'):
@@ -63,8 +74,8 @@ class PMConnectionTests(unittest.TestCase):
         from pm_terminal import Connections
         from types import SimpleNamespace
         manager = Connections()
-        sessions = [dict(id='right', name='vive-pm', cwd=str(dashboard.launch.ROOT / '.claude/worktrees/pm'), kind='background'),
-                    dict(id='wrong', name='vive-pm', cwd='/other', kind='background')]
+        sessions = [dict(id='right', name=dashboard.launch.session_name('pm'), cwd=str(dashboard.launch.ROOT / '.claude/worktrees/pm'), kind='background'),
+                    dict(id='wrong', name=dashboard.launch.session_name('pm'), cwd='/other', kind='background')]
         with patch('pm_terminal.subprocess.run', return_value=SimpleNamespace(stdout=json.dumps(sessions))), patch('pm_terminal.shutil.which', return_value='claude'), patch('pm_terminal.Terminal') as terminal:
             manager.connect()
             terminal.assert_called_once_with('claude', 'right')
@@ -72,7 +83,7 @@ class PMConnectionTests(unittest.TestCase):
     def test_ambiguous_pm_is_rejected(self):
         from pm_terminal import Connections
         from types import SimpleNamespace
-        session = dict(id='a', name='vive-pm', cwd=str(dashboard.launch.ROOT), kind='background')
+        session = dict(id='a', name=dashboard.launch.session_name('pm'), cwd=str(dashboard.launch.ROOT), kind='background')
         with patch('pm_terminal.subprocess.run', return_value=SimpleNamespace(stdout=json.dumps([session, session]))), patch('pm_terminal.shutil.which', return_value='claude'), patch('pm_terminal.Terminal') as terminal:
             with self.assertRaises(RuntimeError):
                 Connections().connect()

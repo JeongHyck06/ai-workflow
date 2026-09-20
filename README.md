@@ -20,7 +20,7 @@ git clone https://github.com/JeongHyck06/ai-workflow.git ai-workflow
 python3 ai-workflow/workflow.py start
 ```
 
-`start`는 `app`·`backend` 폴더 준비 → 팀 세션 초기화 → 모니터 실행을 순서대로 처리합니다. [Team Monitor](http://127.0.0.1:8765/)에서 PM → PM 연결을 누릅니다. 기능 구현은 PM에게 요구사항을 전달한 뒤 시작합니다. 제품 Git 저장소 생성·Commit·Push·PR·배포는 자동 수행하지 않습니다.
+`start`는 `app`·`backend` 폴더와 웹 모니터를 먼저 준비하고 팀 세션을 백그라운드에서 초기화합니다. 터미널에 출력되는 `Team Monitor: http://127.0.0.1:포트` 주소를 열고 PM → PM 연결을 누릅니다. 여러 프로젝트는 8765부터 서로 다른 빈 포트를 자동 사용합니다. 같은 프로젝트를 다시 실행하면 기존 주소를 안내합니다. 세션 이름은 프로젝트 절대 경로를 기준으로 구분하며, 초기화 중에는 역할이 아직 나타나지 않을 수 있습니다. 기능 구현은 PM에게 요구사항을 전달한 뒤 시작합니다. 제품 Git 저장소 생성·Commit·Push·PR·배포는 자동 수행하지 않습니다.
 
 `docs`, `.agents`, `.claude`, `.team-runtime`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`는 **ai-workflow 안에서만** 관리합니다. 제품 루트에 복사하지 않습니다. 팀 CLI도 ai-workflow를 작업 경로로 사용하며, 제품 코드는 상위 `app`·`backend`에 작성하도록 경로를 전달합니다. Git·Figma·배포 URL은 제품 프로젝트의 설정입니다.
 
@@ -65,3 +65,5 @@ python3 -m unittest discover -s tools/team -p 'test_*.py'
 Codex 기록 조회는 [공식 App Server API](https://learn.chatgpt.com/docs/app-server)의 `thread/list`와 `thread/read`를 사용합니다. 조회용 프로세스는 모델 대화를 시작하거나 재개하지 않습니다.
 
 이전 ZIP 버전이 도구 자체를 제품 루트로 저장한 경우, 수정본의 start/init은 상위 경로로 바로잡고 안쪽 app·backend를 바깥으로 이동합니다. 양쪽에 코드가 있으면 덮어쓰지 않고 중단합니다. 도구 자체를 의도적으로 제품으로 사용할 때만 `--project`로 도구 경로를 명시하세요.
+
+기존 버전의 공통 `vive-*` 세션은 새 프로젝트 세션으로 연결하지 않습니다. 실행 중인 이전 세션을 자동 종료하지 않으며, 수정본을 재시작하면 프로젝트별 이름으로 팀을 초기화합니다.

@@ -5,8 +5,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import subprocess
-import socket
 import sys
 
 WORKFLOW = Path(__file__).resolve().parent
@@ -138,7 +136,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['init', 'start', 'team', 'status'])
     parser.add_argument('--project', type=Path)
-    parser.add_argument('--port', type=int, default=8765)
+    parser.add_argument('--port', type=int, help='생략하면 8765부터 빈 포트를 자동 배정')
     parser.add_argument('--provider', choices=['all', 'claude', 'codex'], default='all')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--monitor-only', action='store_true', help='팀 초기화 없이 모니터만 실행')
@@ -151,16 +149,13 @@ def main():
     os.environ['TEAM_PROJECT_ROOT'] = str(root)
     if args.action == 'init':
         return
-    if args.action == 'start' and not args.monitor_only:
-        # Fail before starting roles when another monitor already owns the port.
-        with socket.socket() as probe:
-            probe.bind(('127.0.0.1', args.port))
-        result = subprocess.run([sys.executable, str(WORKFLOW / 'tools/team/launch.py'),
-                                 'team', '--provider', args.provider], cwd=WORKFLOW)
-        if result.returncode:
-            print('일부 역할을 시작하지 못했습니다. 모니터에서 상태를 확인하세요.', flush=True)
     script = 'dashboard.py' if args.action == 'start' else 'launch.py'
-    tail = ['--port', str(args.port)] if args.action == 'start' else [args.action]
+    tail = [args.action] if args.action != 'start' else []
+    if args.action == 'start':
+        if args.port is not None:
+            tail += ['--port', str(args.port)]
+        if not args.monitor_only:
+            tail += ['--launch-team', '--provider', args.provider]
     if args.action == 'team':
         tail += ['--provider', args.provider]
         if args.dry_run:

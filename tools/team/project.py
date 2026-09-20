@@ -11,8 +11,6 @@ CONFIG = WORKFLOW / '.workflow-project.json'
 
 def session_prefix(target):
     target = target.resolve()
-    if target == WORKFLOW:
-        return 'vive'  # Preserve this checkout's existing live sessions.
     label = re.sub(r'[^a-zA-Z0-9-]', '-', target.name).strip('-')[:20] or 'project'
     digest = hashlib.sha256(str(target).encode()).hexdigest()[:8]
     return 'wf-' + label + '-' + digest
