@@ -30,7 +30,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(link.read_text(),(clone/'.claude/skills/setup/SKILL.md').read_text())
             self.assertEqual((docs/'README.md').read_text(),'preserved project docs')
             self.assertEqual((backup/'README.md').read_text(),'original tool docs')
-            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','frontend','backend'})
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','backend'})
 
     def test_external_skill_link_rejected_before_modifying_files(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -42,7 +42,7 @@ class WorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'폴더 밖'):workflow.initialize(root)
             self.assertEqual(outside.read_text(),'untouched')
             self.assertFalse((clone/'.team-runtime').exists())
-            self.assertFalse((root/'frontend').exists())
+            self.assertFalse((root/'app').exists())
 
     def test_shipped_skill_link_resolves_inside_repository(self):
         targets=workflow.skill_targets()
@@ -67,7 +67,7 @@ class WorkflowTests(unittest.TestCase):
         import launch
         with patch.object(launch,'PRODUCT_ROOT',Path('/products/todo')):
             prompt=launch.prompt_for('pm')
-            self.assertIn('/products/todo/frontend',prompt)
+            self.assertIn('/products/todo/app',prompt)
             self.assertIn('/products/todo/backend',prompt)
             self.assertIn(str(launch.ROOT),launch.command_for('qa','codex'))
             self.assertEqual(launch.clean_env()['TEAM_PROJECT_ROOT'],'/products/todo')
@@ -96,10 +96,10 @@ class WorkflowTests(unittest.TestCase):
                 rules.write_text('project PR rules')
                 workflow.initialize(root)
             self.assertEqual(rules.read_text(),'project PR rules')
-            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','frontend','backend'})
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','backend'})
             self.assertEqual((clone/'.team-runtime/bootstrap-backup/docs/agents/GIT.md').read_text(),'existing tool docs')
             self.assertNotIn('## ISSUE-0001',(clone/'docs/issues/ACTIVE.md').read_text())
-            self.assertIn(str(root/'frontend'),(clone/'docs/agents/FRONTEND.md').read_text())
+            self.assertIn(str(root/'app'),(clone/'docs/agents/FRONTEND.md').read_text())
             self.assertEqual((clone/'.gitignore').read_text().count('/.team-runtime/'),1)
 
     def test_project_configuration_and_environment_are_isolated(self):
@@ -141,9 +141,9 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(data['root'],str(root))
                 self.assertEqual(data['secrets'],[])
                 self.assertEqual(data['links'],dict(git='',figma='',deploy=''))
-                self.assertTrue((root/'frontend').is_dir())
+                self.assertTrue((root/'app').is_dir())
                 self.assertTrue((root/'backend').is_dir())
-                self.assertEqual({p.name for p in root.iterdir()},{'workflow','frontend','backend'})
+                self.assertEqual({p.name for p in root.iterdir()},{'workflow','app','backend'})
                 self.assertIn('- 현재 등록된 Issue: 없음',(clone/'docs/issues/ACTIVE.md').read_text())
                 self.assertEqual((clone/'docs/agents/GIT.md').read_bytes(),(project.WORKFLOW/'docs/agents/GIT.md').read_bytes())
             finally:

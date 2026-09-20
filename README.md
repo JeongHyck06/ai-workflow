@@ -5,7 +5,7 @@
 ```text
 todo/
 ├── ai-workflow/       # 모니터·문서·규칙·설정·로그 전체
-├── frontend/          # 제품 프론트엔드
+├── app/          # 제품 프론트엔드
 └── backend/           # 제품 백엔드
 ```
 
@@ -20,9 +20,9 @@ git clone https://github.com/JeongHyck06/ai-workflow.git ai-workflow
 python3 ai-workflow/workflow.py start
 ```
 
-`start`는 `frontend`·`backend` 폴더 준비 → 팀 세션 초기화 → 모니터 실행을 순서대로 처리합니다. [Team Monitor](http://127.0.0.1:8765/)에서 PM → PM 연결을 누릅니다. 기능 구현은 PM에게 요구사항을 전달한 뒤 시작합니다. 제품 Git 저장소 생성·Commit·Push·PR·배포는 자동 수행하지 않습니다.
+`start`는 `app`·`backend` 폴더 준비 → 팀 세션 초기화 → 모니터 실행을 순서대로 처리합니다. [Team Monitor](http://127.0.0.1:8765/)에서 PM → PM 연결을 누릅니다. 기능 구현은 PM에게 요구사항을 전달한 뒤 시작합니다. 제품 Git 저장소 생성·Commit·Push·PR·배포는 자동 수행하지 않습니다.
 
-`docs`, `.agents`, `.claude`, `.team-runtime`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`는 **ai-workflow 안에서만** 관리합니다. 제품 루트에 복사하지 않습니다. 팀 CLI도 ai-workflow를 작업 경로로 사용하며, 제품 코드는 상위 `frontend`·`backend`에 작성하도록 경로를 전달합니다. Git·Figma·배포 URL은 제품 프로젝트의 설정입니다.
+`docs`, `.agents`, `.claude`, `.team-runtime`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`는 **ai-workflow 안에서만** 관리합니다. 제품 루트에 복사하지 않습니다. 팀 CLI도 ai-workflow를 작업 경로로 사용하며, 제품 코드는 상위 `app`·`backend`에 작성하도록 경로를 전달합니다. Git·Figma·배포 URL은 제품 프로젝트의 설정입니다.
 
 처음 사용할 때 다운로드한 도구의 예제 문서는 `ai-workflow/.team-runtime/bootstrap-backup`에 보존하고 깨끗한 프로젝트 템플릿을 설치합니다. 이후 초기화는 실제 프로젝트 문서·PR 규칙을 덮어쓰지 않습니다. 기존 버전이 제품 루트에 생성했던 파일은 이 명령이 자동 삭제하거나 이동하지 않습니다.
 

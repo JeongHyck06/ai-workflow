@@ -5,7 +5,7 @@
 ```text
 제품 프로젝트/
 ├── ai-workflow/   # 이 문서·모니터·스킬·설정·로그
-├── frontend/      # 제품 프론트엔드
+├── app/      # 제품 프론트엔드
 └── backend/       # 제품 백엔드
 ```
 
@@ -32,7 +32,7 @@ python3 ai-workflow/workflow.py start
 ## 저장과 작업 경로
 
 - 문서·스킬·런타임·설정은 ai-workflow 내부에만 저장하며 제품 루트에 복사하지 않는다.
-- 팀 CLI의 작업 경로는 ai-workflow다. 제품 frontend·backend 경로는 초기 지시에 별도로 전달한다.
+- 팀 CLI의 작업 경로는 ai-workflow다. 제품 app·backend 경로는 초기 지시에 별도로 전달한다.
 - 첫 초기화는 도구에 포함된 예제 문서를 `.team-runtime/bootstrap-backup`에 보존하고 프로젝트 템플릿을 설치한다. 이후 프로젝트 문서·PR 규칙은 덮어쓰지 않는다.
 - 제품 경로는 `.workflow-project.json`, 프로세스 상태·시크릿은 `.team-runtime`에 저장한다. 모두 도구의 Git 제외 대상이다.
 - 기존 버전이 제품 루트에 만든 파일은 자동 삭제·이동하지 않는다. 기존 세션은 이전 경로를 사용하므로 전환 작업 없이 중복 파일부터 지우지 않는다.

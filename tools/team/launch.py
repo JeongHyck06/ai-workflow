@@ -34,7 +34,7 @@ def prompt_for(role):
     return (
         f'이 프로젝트의 {document} 역할 세션이다. 요청 모델은 {model}이다. '
         f'제품 루트는 {PRODUCT_ROOT}이며 협업 작업 경로는 {ROOT}이다. '
-        f'프론트엔드 코드는 {PRODUCT_ROOT / "frontend"}, 백엔드 코드는 {PRODUCT_ROOT / "backend"}에 작성한다. '
+        f'프론트엔드 코드는 {PRODUCT_ROOT / "app"}, 백엔드 코드는 {PRODUCT_ROOT / "backend"}에 작성한다. '
         f'협업 문서·설정·작업 트리는 이 작업 경로 안에서만 관리하고 제품 루트에 복사하지 마라. '
         f'제품 Git 작업 대상은 {PRODUCT_ROOT}이며 협업 도구 저장소와 혼동하지 마라. '
         f'docs/README.md, docs/agents/{document}.md, '

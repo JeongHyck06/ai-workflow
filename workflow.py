@@ -71,10 +71,10 @@ def initialize(root):
         target.parent.mkdir(parents=True, exist_ok=True)
         text = source.read_text().replace('vive-', project.session_prefix(root) + '-')
         if root != WORKFLOW:
-            text = text.replace('/app', str(root / 'frontend')).replace('/backend', str(root / 'backend'))
+            text = text.replace('/app', str(root / 'app')).replace('/backend', str(root / 'backend'))
         target.write_text(text)
         created.append(target.relative_to(WORKFLOW).as_posix())
-    for name in ('frontend', 'backend'):
+    for name in ('app', 'backend'):
         (root / name).mkdir(exist_ok=True)
     ignore = WORKFLOW / '.gitignore'
     if ignore.is_symlink():
