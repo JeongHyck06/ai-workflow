@@ -13,6 +13,7 @@
 | 역할 | 실행 도구 | 지정 모델 |
 | --- | --- | --- |
 | PM | Claude Code | fable |
+| Designer | Claude Code | opus |
 | Frontend | Claude Code | opus |
 | Backend | Claude Code | opus |
 | QA | Codex | gpt-6-astra |

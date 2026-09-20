@@ -36,6 +36,7 @@ docs/
 │   └── QA_REPORT.md
 └── agents/
     ├── PM.md
+    ├── DESIGN.md
     ├── FRONTEND.md
     ├── BACKEND.md
     ├── QA.md
@@ -70,6 +71,7 @@ docs/
 | Agent | 역할 문서 | 작업별 추가 읽기 |
 | --- | --- | --- |
 | PM — Fable | [PM](agents/PM.md) | REQUIREMENTS, FEATURES, USER_FLOW, OVERVIEW, Domain 규칙, 관련 QA 결과 |
+| Design — Opus | [DESIGN](agents/DESIGN.md) | DESIGN_SYSTEM, USER_FLOW, FEATURES, 관련 REQUIREMENTS |
 | Frontend — Opus | [FRONTEND](agents/FRONTEND.md) | FRONTEND 설계, API, DESIGN_SYSTEM, 관련 USER_FLOW |
 | Backend — Opus | [BACKEND](agents/BACKEND.md) | BACKEND 설계, DATABASE, API, 관련 REQUIREMENTS |
 | QA — Astra | [QA](agents/QA.md) | 관련 요구사항·흐름·UI 기준, QA_REPORT, 실행 환경 설계 |
@@ -109,7 +111,7 @@ docs/
 
 ## 문서 업데이트와 병렬 작업
 
-- 요구사항·기능·사용자 흐름의 최종 정리는 PM, UI 규약은 Frontend, 각 계층 설계는 담당 개발자, QA 결과는 QA, Git 실행 기록은 Git Manager, 운영·배포 설계는 DevOps가 맡는다.
+- 요구사항·기능·사용자 흐름의 최종 정리는 PM, UI 규약과 디자인 자산은 Designer, 프론트엔드 구현 규약은 Frontend, 각 계층 설계는 담당 개발자, QA 결과는 QA, Git 실행 기록은 Git Manager, 운영·배포 설계는 DevOps가 맡는다.
 - API 계약은 Frontend·Backend가 함께 검토한다. 범위·요구사항 변경과 역할 간 충돌은 PM이 조정한 뒤 기록한다.
 - 코드 변경에 영향을 주는 설계는 구현 전에 갱신한다. 작업 후에는 실제 결과, 테스트 증거, 인계 내용을 갱신한다.
 - Issue 상태·담당자의 원본은 ACTIVE 또는 완료 후 DONE이다. Domain TASKS에는 상태를 복제하지 않고 해당 Issue 링크를 둔다.

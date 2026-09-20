@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 STATE = ROOT / '.team-runtime'
 ROLES = {
     'pm': ('claude', 'fable', 'PM'),
+    'design': ('claude', 'opus', 'DESIGN'),
     'frontend': ('claude', 'opus', 'FRONTEND'),
     'backend': ('claude', 'opus', 'BACKEND'),
     'qa': ('codex', 'gpt-6-astra', 'QA'),
