@@ -15,10 +15,10 @@
   async function load(){
     const version=generation, data=await api('/api/resources');if(version!==generation)return;
     el('resource-project').textContent=data.name+' · '+data.root;
-    for(const key of ['git','figma','deploy'])el('url-'+key).value=data.links[key]||'';
+    for(const key of ['git','backend','frontend','app','figma','deploy'])el('url-'+key).value=data.links[key]||'';
     updateLinks();renderSecrets(data.secrets);ready=true;
   }
-  function updateLinks(){for(const key of ['git','figma','deploy']){const a=el('open-'+key),value=el('url-'+key).value;try{const u=new URL(value);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)throw Error();a.href=u.href;a.hidden=false;}catch{a.removeAttribute('href');a.hidden=true;}}}
+  function updateLinks(){for(const key of ['git','backend','frontend','app','figma','deploy']){const a=el('open-'+key),value=el('url-'+key).value;try{const u=new URL(value);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)throw Error();a.href=u.href;a.hidden=false;}catch{a.removeAttribute('href');a.hidden=true;}}}
   function renderSecrets(items){
     mask();el('secret-list').replaceChildren();
     if(!items.length){const p=document.createElement('p');p.className='resource-empty';p.textContent='등록된 시크릿 키가 없습니다.';el('secret-list').append(p);}
@@ -42,7 +42,7 @@
     }catch(error){if(version===generation)el('usage-scope').textContent=error.message;}finally{el('usage-refresh').disabled=false;}
   }
   function select(name){active=name;mask();el('secret-value').value='';status('');for(const b of dialog.querySelectorAll('[data-resource-tab]')){const on=b.dataset.resourceTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;el('panel-'+b.dataset.resourceTab).hidden=!on;}if(name==='usage')loadUsage();}
-  for(const [key,label,placeholder] of [['git','Git 저장소','https://github.com/…'],['figma','Figma 디자인','https://www.figma.com/design/…'],['deploy','배포 URL (선택)','https://…']]){const row=document.createElement('div');row.className='url-field';const l=document.createElement('label');l.htmlFor='url-'+key;l.textContent=label;const input=document.createElement('input');input.id='url-'+key;input.type='url';input.placeholder=placeholder;input.maxLength=2000;input.addEventListener('input',updateLinks);const a=document.createElement('a');a.id='open-'+key;a.textContent='열기 ↗';a.target='_blank';a.rel='noopener noreferrer';a.hidden=true;row.append(l,input,a);el('link-fields').append(row);}
+  for(const [key,label,placeholder] of [['git','프로젝트 Git 저장소 (선택)','https://github.com/…'],['backend','백엔드 Git 저장소','https://github.com/…'],['frontend','프론트엔드 Git 저장소','https://github.com/…'],['app','App Git 저장소','https://github.com/…'],['figma','Figma 디자인','https://www.figma.com/design/…'],['deploy','배포 URL (선택)','https://…']]){const row=document.createElement('div');row.className='url-field';const l=document.createElement('label');l.htmlFor='url-'+key;l.textContent=label;const input=document.createElement('input');input.id='url-'+key;input.type='url';input.placeholder=placeholder;input.maxLength=2000;input.addEventListener('input',updateLinks);const a=document.createElement('a');a.id='open-'+key;a.textContent='열기 ↗';a.target='_blank';a.rel='noopener noreferrer';a.hidden=true;row.append(l,input,a);el('link-fields').append(row);}
   for(const b of document.querySelectorAll('[data-resources]'))b.addEventListener('click',async()=>{opener=document.activeElement;generation++;ready=false;dialog.showModal();select(b.dataset.resources);try{await load();}catch(error){status(error.message);}});
   const tabs=[...dialog.querySelectorAll('[data-resource-tab]')];
   tabs.forEach((b,i)=>{b.addEventListener('click',()=>select(b.dataset.resourceTab));b.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const n=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[n].focus();select(tabs[n].dataset.resourceTab);});});
@@ -50,7 +50,7 @@
   dialog.addEventListener('close',()=>{generation++;mask();el('secret-form').reset();el('secret-list').replaceChildren();opener?.focus();});
   el('secret-reset').addEventListener('click',()=>{mask();el('secret-form').reset();status('');});
   el('usage-refresh').addEventListener('click',loadUsage);
-  for(const [form,body] of [['links-form',()=>({action:'links',links:Object.fromEntries(['git','figma','deploy'].map(k=>[k,el('url-'+k).value.trim()]))})],['secret-form',()=>({action:'save-secret',name:el('secret-name').value.trim(),value:el('secret-value').value})]])el(form).addEventListener('submit',async event=>{
+  for(const [form,body] of [['links-form',()=>({action:'links',links:Object.fromEntries(['git','backend','frontend','app','figma','deploy'].map(k=>[k,el('url-'+k).value.trim()]))})],['secret-form',()=>({action:'save-secret',name:el('secret-name').value.trim(),value:el('secret-value').value})]])el(form).addEventListener('submit',async event=>{
     event.preventDefault();if(!ready){status('설정을 먼저 불러와야 합니다. 창을 다시 열어주세요.');return;}const submit=event.submitter;submit.disabled=true;const version=generation;
     try{await api('/api/resources',body());if(version!==generation)return;if(form==='secret-form')el(form).reset();await load();status('저장했습니다.');}catch(error){if(version===generation)status(error.message);}finally{submit.disabled=false;}
   });

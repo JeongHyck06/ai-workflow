@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 
 WORKFLOW = Path(__file__).resolve().parent
@@ -63,6 +64,16 @@ def skill_targets():
     return targets
 
 
+def initialize_repositories(root):
+    for name in ('app', 'frontend', 'backend'):
+        folder = root / name
+        if folder.is_symlink():
+            raise ValueError('제품 저장소 폴더의 심볼릭 링크를 확인하세요: ' + str(folder))
+        folder.mkdir(exist_ok=True)
+        if not (folder / '.git').exists():
+            subprocess.run(['git', 'init', '--quiet', str(folder)], check=True)
+
+
 def initialize(root):
     skills = skill_targets()
     root = root.resolve()
@@ -111,8 +122,7 @@ def initialize(root):
             text = text.replace('/app', str(root / 'app')).replace('/backend', str(root / 'backend'))
         target.write_text(text)
         created.append(target.relative_to(WORKFLOW).as_posix())
-    for name in ('app', 'backend'):
-        (root / name).mkdir(exist_ok=True)
+    initialize_repositories(root)
     ignore = WORKFLOW / '.gitignore'
     if ignore.is_symlink():
         raise ValueError('.gitignore 심볼릭 링크는 수정하지 않습니다.')

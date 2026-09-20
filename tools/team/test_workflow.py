@@ -33,7 +33,7 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(workflow.default_project(),root)
                 workflow.initialize(workflow.default_project())
                 workflow.initialize(workflow.default_project())
-            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow-main','app','backend'})
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow-main','app','frontend','backend'})
             for name in ('app','backend'):
                 self.assertFalse((clone/name).exists())
                 self.assertEqual((root/name/'code.txt').read_text(),name+' code')
@@ -69,7 +69,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(link.read_text(),(clone/'.claude/skills/setup/SKILL.md').read_text())
             self.assertEqual((docs/'README.md').read_text(),'preserved project docs')
             self.assertEqual((backup/'README.md').read_text(),'original tool docs')
-            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','backend'})
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','frontend','backend'})
 
     def test_external_skill_link_rejected_before_modifying_files(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -133,7 +133,7 @@ class WorkflowTests(unittest.TestCase):
                 rules.write_text('project PR rules')
                 workflow.initialize(root)
             self.assertEqual(rules.read_text(),'project PR rules')
-            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','backend'})
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','app','frontend','backend'})
             self.assertEqual((clone/'.team-runtime/bootstrap-backup/docs/agents/GIT.md').read_text(),'existing tool docs')
             self.assertNotIn('## ISSUE-0001',(clone/'docs/issues/ACTIVE.md').read_text())
             self.assertIn(str(root/'app'),(clone/'docs/agents/FRONTEND.md').read_text())
@@ -177,10 +177,10 @@ class WorkflowTests(unittest.TestCase):
                 with urlopen(url+'/api/resources',timeout=3) as response:data=json.load(response)
                 self.assertEqual(data['root'],str(root))
                 self.assertEqual(data['secrets'],[])
-                self.assertEqual(data['links'],dict(git='',figma='',deploy=''))
+                self.assertEqual(data['links'],dict(git='',backend='',frontend='',app='',figma='',deploy=''))
                 self.assertTrue((root/'app').is_dir())
                 self.assertTrue((root/'backend').is_dir())
-                self.assertEqual({p.name for p in root.iterdir()},{'workflow','app','backend'})
+                self.assertEqual({p.name for p in root.iterdir()},{'workflow','app','frontend','backend'})
                 self.assertIn('- 현재 등록된 Issue: 없음',(clone/'docs/issues/ACTIVE.md').read_text())
                 self.assertEqual((clone/'docs/agents/GIT.md').read_bytes(),(project.WORKFLOW/'docs/agents/GIT.md').read_bytes())
             finally:
@@ -231,3 +231,16 @@ class WorkflowTests(unittest.TestCase):
                     process.wait(timeout=5)
                     process.stdout.close()
                     process.stderr.close()
+
+    def test_independent_repositories_preserve_existing_origin(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()
+            workflow.initialize_repositories(root)
+            subprocess.run(['git','-C',str(root/'backend'),'remote','add','origin','https://github.com/example/backend.git'],check=True)
+            workflow.initialize_repositories(root)
+            for name in ('backend','frontend','app'):
+                result=subprocess.run(['git','-C',str(root/name),'rev-parse','--show-toplevel'],capture_output=True,text=True,check=True)
+                self.assertEqual(Path(result.stdout.strip()).resolve(),root/name)
+            result=subprocess.run(['git','-C',str(root/'backend'),'remote','get-url','origin'],capture_output=True,text=True,check=True)
+            self.assertEqual(result.stdout.strip(),'https://github.com/example/backend.git')

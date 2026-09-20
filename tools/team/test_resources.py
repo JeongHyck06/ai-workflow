@@ -38,3 +38,10 @@ class ResourceTests(unittest.TestCase):
         (resources.launch.STATE/'resources.json').symlink_to(outside)
         with self.assertRaises(ValueError):resources.update(dict(action='save-secret',name='KEY',value='v'))
         self.assertEqual(outside.read_text(),'original')
+
+    def test_repository_links_are_independent(self):
+        resources.update(dict(action='links',links=dict(backend='https://github.com/org/backend',frontend='https://github.com/org/frontend',app='https://github.com/org/app')))
+        links=resources.overview()['links']
+        self.assertEqual(links['backend'],'https://github.com/org/backend')
+        self.assertEqual(links['frontend'],'https://github.com/org/frontend')
+        self.assertEqual(links['app'],'https://github.com/org/app')

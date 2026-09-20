@@ -5,6 +5,7 @@ let data = null, selected = 'pm', busy = false;
 const nodes = new Map();
 function render() {
   if (!data) return;
+  renderQuestions();
   if(data.project){$('project-name').textContent='WORKSPACE / '+data.project.root;document.title='Team Monitor · '+data.project.name;}
   for (const role of data.roles) {
     let button = nodes.get(role.role);
@@ -59,3 +60,26 @@ $('copy').addEventListener('click',async()=>{try{await navigator.clipboard.write
 setInterval(()=>{if($('auto').checked && !document.hidden)refresh();},5000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden && $('auto').checked)refresh();});
 refresh();
+
+function questionKey(){return 'pm-questions:'+data?.project?.root;}
+let seenQuestions='';
+function renderQuestions(){
+  const questions=data.questions||[];
+  const signature=JSON.stringify(questions);
+  try{seenQuestions=localStorage.getItem(questionKey())||'';}catch{}
+  const unread=questions.length&&seenQuestions!==signature;
+  $('questions-open').textContent=unread?`PM 질문 · 확인 필요 (${questions.length})`:'PM 질문';
+  $('questions-open').classList.toggle('primary',Boolean(unread));
+  const list=$('questions-list');list.replaceChildren();
+  for(const question of questions){const p=document.createElement('p');p.textContent=question;list.append(p);}
+  if(!questions.length)list.textContent='현재 감지된 PM 질문이 없습니다. PM 대화에서도 확인할 수 있습니다.';
+}
+$('questions-open').addEventListener('click',()=>{
+  $('questions-dialog').showModal();
+  seenQuestions=JSON.stringify(data?.questions||[]);
+  try{localStorage.setItem(questionKey(),seenQuestions);}catch{}
+  renderQuestions();
+});
+$('questions-close').addEventListener('click',()=>$('questions-dialog').close());
+$('questions-dialog').addEventListener('close',()=>$('questions-open').focus());
+$('questions-reply').addEventListener('click',()=>{selected='pm';render();$('questions-dialog').close();$('pm-connect').focus();});

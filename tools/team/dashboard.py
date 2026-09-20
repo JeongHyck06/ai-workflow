@@ -94,7 +94,9 @@ def snapshot():
         issues = re.sub(r'```[\s\S]*?```', '', issues).strip()
     except OSError:
         issues = '진행 Issue 문서를 읽을 수 없습니다.'
-    return dict(roles=rows, issues=issues, updated=time.time(), error=error or TEAM_START['message'],
+    questions = re.findall(r'^\[PM_QUESTION\](.+?)\[/PM_QUESTION\]\s*$',
+                           next((r['log'] for r in rows if r['role'] == 'pm'), ''), re.MULTILINE)
+    return dict(questions=questions[-20:], roles=rows, issues=issues, updated=time.time(), error=error or TEAM_START['message'],
                 project=dict(name=launch.PRODUCT_ROOT.name, root=str(launch.PRODUCT_ROOT)))
 
 

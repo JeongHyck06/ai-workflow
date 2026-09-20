@@ -9,7 +9,7 @@ import subprocess
 import launch
 
 LOCK = threading.RLock()
-LINKS = ('git', 'figma', 'deploy')
+LINKS = ('git', 'backend', 'frontend', 'app', 'figma', 'deploy')
 
 
 def read_store():
@@ -48,9 +48,12 @@ def valid_url(value):
     return value
 
 
-def git_url():
+def git_url(folder=None):
+    folder = folder or launch.PRODUCT_ROOT
+    if not (folder / '.git').exists():
+        return ''
     try:
-        value = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=launch.PRODUCT_ROOT,
+        value = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=folder,
                                capture_output=True, text=True, timeout=2, check=True).stdout.strip()
         match = re.fullmatch(r'git@([^:]+):(.+)', value)
         if match:
@@ -64,7 +67,7 @@ def overview():
     with LOCK:
         data = read_store()
         return dict(name=launch.PRODUCT_ROOT.name, root=str(launch.PRODUCT_ROOT),
-                    links={key: data['links'].get(key, git_url() if key == 'git' else '') for key in LINKS},
+                    links={key: data['links'].get(key, git_url() if key == 'git' else git_url(launch.PRODUCT_ROOT / key) if key in ('backend', 'frontend', 'app') else '') for key in LINKS},
                     secrets=[dict(name=name, masked='••••••••') for name in sorted(data['secrets'])])
 
 
@@ -74,9 +77,9 @@ def update(body):
         action = body.get('action')
         if action == 'links':
             links = body.get('links')
-            if not isinstance(links, dict) or set(links) != set(LINKS):
+            if not isinstance(links, dict) or not set(links).issubset(LINKS):
                 raise ValueError('프로젝트 URL을 확인하세요.')
-            data['links'] = {key: valid_url(value) for key, value in links.items()}
+            data['links'].update({key: valid_url(value) for key, value in links.items()})
         elif action in ('save-secret', 'delete-secret', 'reveal-secret'):
             name = body.get('name')
             if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,127}', name):
