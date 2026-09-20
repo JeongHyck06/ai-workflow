@@ -11,6 +11,44 @@ spec.loader.exec_module(workflow)
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_shipped_skill_symlink_and_failed_initialization_retry(self):
+        import shutil
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'todo';clone=root/'ai-workflow'
+            clone.mkdir(parents=True)
+            shutil.copytree(project.WORKFLOW/'templates',clone/'templates')
+            link=clone/'.agents/skills/setup/SKILL.md'
+            link.parent.mkdir(parents=True)
+            link.symlink_to('../../../.claude/skills/setup/SKILL.md')
+            backup=clone/'.team-runtime/bootstrap-backup/docs'
+            backup.mkdir(parents=True);(backup/'README.md').write_text('original tool docs')
+            docs=clone/'docs';docs.mkdir();(docs/'README.md').write_text('preserved project docs')
+            with patch.object(workflow,'WORKFLOW',clone),patch.object(project,'CONFIG',clone/'.workflow-project.json'):
+                workflow.initialize(root)
+                workflow.initialize(root)
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(link.read_text(),(clone/'.claude/skills/setup/SKILL.md').read_text())
+            self.assertEqual((docs/'README.md').read_text(),'preserved project docs')
+            self.assertEqual((backup/'README.md').read_text(),'original tool docs')
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','frontend','backend'})
+
+    def test_external_skill_link_rejected_before_modifying_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'todo';clone=root/'ai-workflow'
+            link=clone/'.agents/skills/setup/SKILL.md';link.parent.mkdir(parents=True)
+            outside=Path(temp)/'outside.md';outside.write_text('untouched')
+            link.symlink_to(outside)
+            with patch.object(workflow,'WORKFLOW',clone),patch.object(project,'CONFIG',clone/'.workflow-project.json'):
+                with self.assertRaisesRegex(ValueError,'폴더 밖'):workflow.initialize(root)
+            self.assertEqual(outside.read_text(),'untouched')
+            self.assertFalse((clone/'.team-runtime').exists())
+            self.assertFalse((root/'frontend').exists())
+
+    def test_shipped_skill_link_resolves_inside_repository(self):
+        targets=workflow.skill_targets()
+        self.assertEqual(targets[0],targets[1])
+        self.assertTrue(targets[0].is_file())
+
     def test_start_launches_team_then_monitor(self):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ', {}, clear=True), \

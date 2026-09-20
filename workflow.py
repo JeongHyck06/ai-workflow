@@ -14,7 +14,25 @@ sys.path.insert(0, str(WORKFLOW / 'tools/team'))
 import project
 
 
+def skill_targets():
+    """Resolve shared skill links before any initialization changes."""
+    targets = []
+    for provider in ('.agents', '.claude'):
+        path = WORKFLOW / provider / 'skills/setup/SKILL.md'
+        try:
+            target = path.resolve()
+        except (OSError, RuntimeError) as error:
+            raise ValueError('스킬 링크를 확인할 수 없습니다: ' + str(path)) from error
+        if WORKFLOW.resolve() not in target.parents:
+            raise ValueError('스킬 경로가 ai-workflow 폴더 밖을 가리킵니다: ' + str(path))
+        if target.exists() and not target.is_file():
+            raise ValueError('스킬 경로가 파일이 아닙니다: ' + str(path))
+        targets.append(target)
+    return targets
+
+
 def initialize(root):
+    skills = skill_targets()
     root = root.resolve()
     root.mkdir(parents=True, exist_ok=True)
     runtime = WORKFLOW / '.team-runtime'
@@ -29,11 +47,14 @@ def initialize(root):
         # Keep the downloaded tool's example documents before installing clean
         # project documents. Never overwrite the source checkout's own docs.
         backup = runtime / 'bootstrap-backup'
+        # An earlier version could fail at skill installation after already
+        # creating this backup and project docs. Resume without replacing either.
+        resuming = backup.exists()
         for name in ('docs', 'AGENTS.md', 'CLAUDE.md', 'MyIdea.md'):
             current = WORKFLOW / name
             if current.is_symlink():
                 raise ValueError('초기화 대상에 심볼릭 링크가 있습니다: ' + str(current))
-            if current.exists():
+            if current.exists() and not resuming:
                 backup.mkdir(exist_ok=True)
                 if (backup / name).exists():
                     raise ValueError('이전 초기화 백업이 있습니다. 먼저 상태를 확인하세요.')
@@ -63,10 +84,7 @@ def initialize(root):
         if line not in content.splitlines():
             content = content.rstrip() + '\n' + line + '\n'
     ignore.write_text(content)
-    for provider in ('.agents', '.claude'):
-        target = WORKFLOW / provider / 'skills/setup/SKILL.md'
-        if any(p.is_symlink() for p in [target, *target.parents] if WORKFLOW in p.parents):
-            raise ValueError('스킬 경로의 심볼릭 링크는 허용되지 않습니다.')
+    for target in skills:
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('---\nname: setup\ndescription: 팀 세션 초기화\n---\n\n'
