@@ -26,7 +26,7 @@ python3 ai-workflow/workflow.py start
 
 처음 사용할 때 다운로드한 도구의 예제 문서는 `ai-workflow/.team-runtime/bootstrap-backup`에 보존하고 깨끗한 프로젝트 템플릿을 설치합니다. 이후 초기화는 실제 프로젝트 문서·PR 규칙을 덮어쓰지 않습니다. 기존 버전이 제품 루트에 생성했던 파일은 이 명령이 자동 삭제하거나 이동하지 않습니다.
 
-`ai-workflow` 또는 `workflow` 폴더 이름에서는 기본 제품 경로가 상위 폴더입니다. 다른 이름으로 복사했다면 첫 실행에 `--project .`를 지정하세요. 경로는 도구 내부 `.workflow-project.json`에 저장됩니다. 초기화가 끝난 도구 사본을 다른 프로젝트에 재사용하지 말고 새 사본을 복사하세요.
+폴더 이름에 관계없이 기본 제품 경로는 도구 폴더의 상위입니다. ZIP의 `ai-workflow-main` 이름도 그대로 사용할 수 있습니다. 별도 경로는 `--project`로 지정하세요. 경로는 도구 내부 `.workflow-project.json`에 저장됩니다. 초기화가 끝난 도구 사본을 다른 프로젝트에 재사용하지 말고 새 사본을 복사하세요.
 
 ## 실행 옵션
 
@@ -63,3 +63,5 @@ python3 -m unittest discover -s tools/team -p 'test_*.py'
 ```
 
 Codex 기록 조회는 [공식 App Server API](https://learn.chatgpt.com/docs/app-server)의 `thread/list`와 `thread/read`를 사용합니다. 조회용 프로세스는 모델 대화를 시작하거나 재개하지 않습니다.
+
+이전 ZIP 버전이 도구 자체를 제품 루트로 저장한 경우, 수정본의 start/init은 상위 경로로 바로잡고 안쪽 app·backend를 바깥으로 이동합니다. 양쪽에 코드가 있으면 덮어쓰지 않고 중단합니다. 도구 자체를 의도적으로 제품으로 사용할 때만 `--project`로 도구 경로를 명시하세요.

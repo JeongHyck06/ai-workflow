@@ -14,6 +14,40 @@ sys.path.insert(0, str(WORKFLOW / 'tools/team'))
 import project
 
 
+def default_project():
+    if project.CONFIG.exists():
+        config = json.loads(project.CONFIG.read_text())
+        saved = Path(config['project']).expanduser().resolve()
+        # Old ZIP installs incorrectly stored the tool itself as the product.
+        if saved != WORKFLOW or config.get('workflowIsProject'):
+            return saved
+    return WORKFLOW.parent
+
+
+def relocate_legacy_code(root):
+    plans = []
+    for name in ('app', 'backend'):
+        source, destination = WORKFLOW / name, root / name
+        if source.is_symlink() or destination.is_symlink():
+            raise ValueError('제품 코드 폴더의 심볼릭 링크를 먼저 확인하세요.')
+        if not source.exists():
+            continue
+        if not source.is_dir() or (destination.exists() and not destination.is_dir()):
+            raise ValueError('제품 코드 경로가 폴더가 아닙니다: ' + name)
+        source_has_files = any(source.iterdir())
+        destination_has_files = destination.exists() and any(destination.iterdir())
+        if source_has_files and destination_has_files:
+            raise ValueError(f'{name} 코드가 도구 안과 밖에 모두 있습니다. 덮어쓰지 않고 중단합니다.')
+        plans.append((source, destination, destination_has_files))
+    for source, destination, keep_destination in plans:
+        if keep_destination:
+            source.rmdir()  # Only an empty duplicate is removed.
+        else:
+            if destination.exists():
+                destination.rmdir()
+            shutil.move(str(source), str(destination))
+
+
 def skill_targets():
     """Resolve shared skill links before any initialization changes."""
     targets = []
@@ -41,8 +75,13 @@ def initialize(root):
     runtime.mkdir(exist_ok=True, mode=0o700)
     runtime.chmod(0o700)
     config = json.loads(project.CONFIG.read_text()) if project.CONFIG.exists() else {}
+    repair_self_root = (config.get('project') and Path(config['project']).resolve() == WORKFLOW
+                        and not config.get('workflowIsProject') and root == WORKFLOW.parent)
     if config.get('layout') == 2 and Path(config['project']).resolve() != root:
-        raise ValueError('이 도구 폴더는 다른 프로젝트에 연결되어 있습니다. 새 프로젝트에는 새 사본을 사용하세요.')
+        if not repair_self_root:
+            raise ValueError('이 도구 폴더는 다른 프로젝트에 연결되어 있습니다. 새 프로젝트에는 새 사본을 사용하세요.')
+    if repair_self_root:
+        relocate_legacy_code(root)
     if root != WORKFLOW and config.get('layout') != 2:
         # Keep the downloaded tool's example documents before installing clean
         # project documents. Never overwrite the source checkout's own docs.
@@ -90,7 +129,8 @@ def initialize(root):
             target.write_text('---\nname: setup\ndescription: 팀 세션 초기화\n---\n\n'
                               'ai-workflow 작업 경로에서 `python3 workflow.py team`을 실행한다.\n'
                               '팀 초기화만 수행하며 기능 구현·Commit·배포는 요청하지 않는다.\n')
-    project.CONFIG.write_text(json.dumps({'project': str(root), 'layout': 2}, ensure_ascii=False) + '\n')
+    project.CONFIG.write_text(json.dumps({'project': str(root), 'layout': 2,
+                                        'workflowIsProject': root == WORKFLOW}, ensure_ascii=False) + '\n')
     print(f'Project: {root}\nWorkflow: {WORKFLOW}\n협업 파일은 도구 폴더 내부에만 저장합니다. 새 문서 {len(created)}개.', flush=True)
 
 
@@ -105,9 +145,7 @@ def main():
     args = parser.parse_args()
     if args.dry_run and args.action != 'team':
         parser.error('--dry-run은 team 명령에서만 사용할 수 있습니다.')
-    root = args.project.expanduser().resolve() if args.project else project.root()
-    if not args.project and not project.CONFIG.exists() and WORKFLOW.name in ('workflow', 'ai-workflow'):
-        root = WORKFLOW.parent
+    root = args.project.expanduser().resolve() if args.project else default_project()
     if args.action in ('init', 'start'):
         initialize(root)
     os.environ['TEAM_PROJECT_ROOT'] = str(root)

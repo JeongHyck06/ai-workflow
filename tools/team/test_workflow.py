@@ -11,6 +11,45 @@ spec.loader.exec_module(workflow)
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_any_archive_folder_name_defaults_to_parent(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'Test Todo'
+            for name in ('ai-workflow-main','ai-workflow-dev','my tools'):
+                clone=root/name
+                with patch.object(workflow,'WORKFLOW',clone),patch.object(project,'CONFIG',clone/'.workflow-project.json'):
+                    self.assertEqual(workflow.default_project(),root)
+
+    def test_wrong_saved_zip_root_is_repaired_with_code_preserved(self):
+        import json
+        import shutil
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve()/'Test Todo';clone=root/'ai-workflow-main'
+            clone.mkdir(parents=True)
+            shutil.copytree(project.WORKFLOW/'templates',clone/'templates')
+            for name in ('app','backend'):
+                (clone/name).mkdir();(clone/name/'code.txt').write_text(name+' code')
+            config=clone/'.workflow-project.json';config.write_text(json.dumps(dict(project=str(clone),layout=2)))
+            with patch.object(workflow,'WORKFLOW',clone),patch.object(project,'CONFIG',config):
+                self.assertEqual(workflow.default_project(),root)
+                workflow.initialize(workflow.default_project())
+                workflow.initialize(workflow.default_project())
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow-main','app','backend'})
+            for name in ('app','backend'):
+                self.assertFalse((clone/name).exists())
+                self.assertEqual((root/name/'code.txt').read_text(),name+' code')
+            self.assertEqual(json.loads(config.read_text())['project'],str(root))
+
+    def test_legacy_code_conflict_leaves_both_sides_untouched(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp).resolve();clone=root/'ai-workflow-main'
+            for folder in (clone/'app',root/'app',clone/'backend'):
+                folder.mkdir(parents=True);(folder/'code').write_text(str(folder))
+            with patch.object(workflow,'WORKFLOW',clone):
+                with self.assertRaisesRegex(ValueError,'모두 있습니다'):workflow.relocate_legacy_code(root)
+            self.assertTrue((clone/'app/code').exists())
+            self.assertTrue((root/'app/code').exists())
+            self.assertTrue((clone/'backend/code').exists())
+
     def test_shipped_skill_symlink_and_failed_initialization_retry(self):
         import shutil
         with tempfile.TemporaryDirectory() as temp:
