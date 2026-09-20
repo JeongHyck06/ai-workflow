@@ -20,7 +20,7 @@
 | Git Manager | Claude Code | sonnet |
 | DevOps | Claude Code | fable |
 
-역할·모델 매핑의 실행 원본은 `tools/team/launch.py`다. 역할의 권한과 책임은 각 역할 문서를 따른다. 사용 불가능한 모델을 다른 모델로 자동 대체하지 않는다.
+역할·모델 매핑의 실행 원본은 `workflow/tools/team/launch.py`다. 역할의 권한과 책임은 각 역할 문서를 따른다. 사용 불가능한 모델을 다른 모델로 자동 대체하지 않는다.
 
 ## 준비 조건
 
@@ -34,15 +34,15 @@
 각 세션은 진입점·자신의 역할·ACTIVE를 읽고 준비 상태를 보고한 뒤 다음 입력을 기다린다. 미정 요구사항을 채우거나 기능 구현, Git 변경, 배포를 자동으로 시작하지 않는다.
 
 ```bash
-python3 tools/team/launch.py status
-python3 tools/team/launch.py team --dry-run
+python3 workflow/workflow.py status
+python3 workflow/workflow.py team --dry-run
 claude agents            # 살아 있는 background 세션 목록
 claude attach <id>       # 해당 역할 세션을 이 터미널에서 열기
 claude logs <id>         # 해당 역할의 최근 출력만 보기
 claude stop <id>         # 해당 역할 종료
 ```
 
-명령을 제공하는 스킬이 없는 환경에서도 `python3 tools/team/launch.py team`으로 동일하게 시작할 수 있다. 특정 도구만 시작할 때는 `--provider claude` 또는 `--provider codex`를 사용한다.
+명령을 제공하는 스킬이 없는 환경에서도 `python3 workflow/workflow.py team`으로 동일하게 시작할 수 있다. 특정 도구만 시작할 때는 `--provider claude` 또는 `--provider codex`를 사용한다.
 
 - `.team-runtime/`은 로컬 프로세스 식별·중복 실행 방지 정보다. 프로젝트 설계·Issue 상태는 저장하지 않으며 Git에서 제외한다.
 - RUNNING은 세션 생존만 뜻한다. 로그인 성공·모델 사용 가능·역할 준비 완료는 `claude logs <id>`와 QA Terminal의 실제 응답으로 확인한다.
@@ -70,7 +70,7 @@ Claude 역할 세션은 서로 이름으로 메시지를 주고받는다. 이름
 ## 로컬 웹 모니터
 
 ```bash
-python3 tools/team/dashboard.py
+python3 workflow/workflow.py start
 ```
 
 [Team Monitor](http://127.0.0.1:8765)에서 역할 상태, Claude 최근 출력, 진행 Issue를 확인한다. `--port 8766`으로 포트를 변경할 수 있다. Python 표준 라이브러리만 사용한다.
@@ -99,10 +99,3 @@ python3 tools/team/dashboard.py
 - docs 아래 Markdown과 MyIdea.md를 분류해서 표시한다. MyIdea는 미확정 메모로 표시한다. 제목·파일명·분류 검색, 수정 시각, 새로고침, 내부 문서 링크를 지원한다.
 - 읽기 전용이며 실제 원본 파일을 조회한다. HTML은 실행하지 않고 이미지 자동 로드를 사용하지 않는다. 문서 폴더 밖 경로와 심볼릭 링크는 제공하지 않는다.
 - Markdown 렌더러: markdown-it 14.1.0, vendor에 배포본 및 라이선스 보관.
-
-
-## 다른 프로젝트에서 사용
-
-[저장소 실행 안내](../../README.md)를 따른다. 제품 프로젝트의 `workflow/`로 클론하고 `python3 workflow/workflow.py start --project .`를 실행하면 상위 제품 경로의 문서·역할·설정을 사용한다. 새 프로젝트 문서는 `templates/project`에서 복사하며 기존 PR 규칙과 문서는 보존한다. `--port`로 프로젝트별 포트를 구분한다.
-
-오른쪽 프로젝트 관리에서 Git·Figma·배포 URL, 로컬 시크릿, 기록된 토큰 사용량을 조회한다. 시크릿 값은 문서나 Git에 넣지 않으며 로컬 파일 저장 방식과 표시 수명은 실행 안내를 따른다.

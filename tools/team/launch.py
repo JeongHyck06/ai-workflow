@@ -10,8 +10,9 @@ import shutil
 import subprocess
 import sys
 import time
+import project
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = project.root()
 STATE = ROOT / '.team-runtime'
 ROLES = {
     'pm': ('claude', 'fable', 'PM'),
@@ -22,10 +23,13 @@ ROLES = {
     'git': ('claude', 'sonnet', 'GIT'),
     'devops': ('claude', 'fable', 'DEVOPS'),
 }
+def session_name(role):
+    return project.session_prefix(ROOT) + '-' + role
 
 
 def prompt_for(role):
     _, model, document = ROLES[role]
+    sendable = ', '.join(session_name(r) for r, spec in ROLES.items() if spec[0] == 'claude')
     return (
         f'이 프로젝트의 {document} 역할 세션이다. 요청 모델은 {model}이다. '
         f'프로젝트 루트는 {ROOT}이다. docs/README.md, docs/agents/{document}.md, '
@@ -34,16 +38,55 @@ def prompt_for(role):
         '다음 입력을 기다려라. 요구사항·기술 스택·Issue를 임의로 만들거나 기능 구현, '
         'Git 변경, 배포를 시작하지 마라. 다른 세션을 추가 생성하거나 setup을 재호출하지 마라. '
         '실제 작업은 이후 PM의 명시적 할당과 사용자 요청 범위에 따라 진행한다. '
-        '세션 간 공유 기록은 docs를 사용한다. 민감값을 기록하지 마라.'
+        '세션 간 공유 기록은 docs를 사용한다. 민감값을 기록하지 마라. '
+        f'다른 역할 세션의 이름은 {project.session_prefix(ROOT)}-<role>이며 {sendable}에 메시지를 보낼 수 있다. '
+        '사용자와 직접 소통하는 역할은 PM뿐이다. PM은 요청·질문·진행·승인·결과를 취합한다. '
+        '다른 역할은 준비 상태와 질문·완료·차단 사유를 PM에게 보고하고 사용자에게 직접 입력을 요구하지 마라. '
+        'QA는 Codex라 메시지 대상이 아니다. PM이 통신 연결 부재를 차단 사유로 관리하며 사용자에게 중계를 요구하지 마라.'
     )
 
 
 def command_for(role, executable):
     provider, model, _ = ROLES[role]
     if provider == 'claude':
-        return [executable, '--model', model, '--name', f'vive-{role}',
+        # --bg 세션만 세션 간 메시지 대상으로 등록된다. Terminal 창 세션은 등록되지 않는다.
+        return [executable, '--bg', '--name', session_name(role), '--model', model,
                 '--settings', '{"attribution":{"commit":"","pr":""}}', prompt_for(role)]
     return [executable, '--model', model, '--cd', str(ROOT), prompt_for(role)]
+
+
+def clean_env():
+    # An independent session must not inherit its caller's nesting marker.
+    env = os.environ.copy()
+    for key in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CODEX_THREAD_ID'):
+        env.pop(key, None)
+    env['TEAM_PROJECT_ROOT'] = str(ROOT)
+    return env
+
+
+def bg_names(executable):
+    """이 프로젝트에서 살아 있는 background 세션 이름."""
+    try:
+        out = subprocess.run([executable, 'agents', '--json'], cwd=ROOT, env=clean_env(),
+                             capture_output=True, text=True, timeout=30).stdout
+        return {s.get('name') for s in json.loads(out)
+                if (Path(s.get('cwd') or '/').resolve() == ROOT or
+                    ROOT / '.claude/worktrees' in Path(s.get('cwd') or '/').resolve().parents)
+                and s.get('kind') == 'background'}
+    except (subprocess.SubprocessError, OSError, ValueError):
+        return set()
+
+
+def start_bg(role, executable):
+    result = subprocess.run(command_for(role, executable), cwd=ROOT, env=clean_env(),
+                            capture_output=True, text=True, timeout=120)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f'{executable} --bg failed')
+    fields = result.stdout.split('\n')[0].split('·')
+    session = fields[1].strip() if len(fields) > 1 else ''
+    write_state(role, dict(role=role, provider='claude', model=ROLES[role][1],
+                           status='RUNNING', time=time.time(), session=session))
+    return session
 
 
 def read_state(role):
@@ -70,8 +113,14 @@ def lock_held(role):
         return False
 
 
-def status_for(role):
+def status_for(role, bg=None):
     data = read_state(role)
+    if ROLES[role][0] == 'claude':
+        if bg is None:
+            bg = bg_names(shutil.which('claude') or 'claude')
+        if session_name(role) in bg:
+            return 'RUNNING', data
+        return ('STOPPED' if data else 'NOT_STARTED'), data
     if lock_held(role):
         return 'RUNNING', data
     if data.get('status') == 'STARTING' and time.time() - data.get('time', 0) < 60:
@@ -93,11 +142,7 @@ def run_role(role, executable):
         result = 1
         process = None
         try:
-            env = os.environ.copy()
-            # An independent Claude session must not inherit its caller's nesting marker.
-            for key in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CODEX_THREAD_ID'):
-                env.pop(key, None)
-            process = subprocess.Popen(command_for(role, executable), cwd=ROOT, env=env)
+            process = subprocess.Popen(command_for(role, executable), cwd=ROOT, env=clean_env())
             write_state(role, dict(data, process_pid=process.pid))
             result = process.wait()
         except KeyboardInterrupt:
@@ -115,7 +160,7 @@ def run_role(role, executable):
 
 
 def open_terminal(role, executable):
-    command = shlex.join([sys.executable, str(Path(__file__).resolve()),
+    command = shlex.join(['env', 'TEAM_PROJECT_ROOT=' + str(ROOT), sys.executable, str(Path(__file__).resolve()),
                          'run-role', role, '--executable', executable])
     # Pass the shell command as an AppleScript argument, never interpolate script source.
     script = ('on run argv\n'
@@ -154,25 +199,34 @@ def launch(provider, dry_run=False):
                 continue
             write_state(role, dict(status='STARTING', time=time.time()))
             try:
-                open_terminal(role, executables[ROLES[role][0]])
+                if ROLES[role][0] == 'claude':
+                    start_bg(role, executables['claude'])
+                else:
+                    open_terminal(role, executables[ROLES[role][0]])
                 started.append(role)
             except (subprocess.SubprocessError, OSError) as error:
                 write_state(role, dict(status='FAILED', time=time.time()))
                 failed.append(role)
                 print(f'{role}: launch failed: {error}', file=sys.stderr)
+        windowed = [role for role in started if ROLES[role][0] != 'claude']
         deadline = time.monotonic() + 10
-        while started and time.monotonic() < deadline:
-            if all(lock_held(role) or read_state(role).get('status') == 'STOPPED' for role in started):
+        while windowed and time.monotonic() < deadline:
+            if all(lock_held(role) or read_state(role).get('status') == 'STOPPED' for role in windowed):
                 break
             time.sleep(0.2)
+        bg = bg_names(executables['claude']) if 'claude' in executables else set()
         for role in started:
-            status, data = status_for(role)
-            print(f'{role}: {status}; model={ROLES[role][1]}')
-            if status == 'STOPPED':
+            status, data = status_for(role, bg)
+            session = data.get('session')
+            where = f'claude attach {session}' if role == 'pm' and session else 'monitor only; contact PM'
+            print(f'{role}: {status}; model={ROLES[role][1]}; {where}')
+            if status != 'RUNNING':
                 failed.append(role)
-                print(f'  CLI exited: {data.get("exit_code")}; inspect its Terminal window')
-        print('RUNNING means the CLI process is alive, not that login/model access or role initialization succeeded.')
-        print('Check each Terminal for the role readiness response. No implementation or deployment was requested.')
+                print(f'  did not start: {data.get("exit_code", status)}')
+        print('RUNNING means the session is alive, not that login/model access or role initialization succeeded.')
+        sendable = ', '.join(session_name(r) for r, spec in ROLES.items() if spec[0] == 'claude')
+        print(f'Claude roles run in the background and accept messages at {sendable}.')
+        print('QA runs in a Terminal window and is not a message target. No implementation or deployment was requested.')
         return 1 if failed else 0
 
 
@@ -194,8 +248,11 @@ def main():
     if not STATE.exists():
         print('No team has been launched')
         return 0
+    bg = bg_names(shutil.which('claude') or 'claude')
     for role in ROLES:
-        print(f'{role}: {status_for(role)[0]}')
+        status, data = status_for(role, bg)
+        session = data.get('session')
+        print(f'{role}: {status}' + (f'; claude attach {session}' if role == 'pm' and session else ''))
     return 0
 
 

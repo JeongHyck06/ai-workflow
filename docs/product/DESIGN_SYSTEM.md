@@ -28,10 +28,44 @@ Designer가 작업하는 장소이자 구현 대상의 원본이다. 참고 자�
 
 | 대상 화면·컴포넌트 | Figma 링크 (node-id 포함) | 구현 Issue | 갱신일 |
 | --- | --- | --- | --- |
-| TODO | TODO | TODO | TBD |
+| 로컬 Team Monitor / Desktop | [Figma 프레임](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=3-130) | [ISSUE-0001](../issues/ACTIVE.md#issue-0001) | 2026-09-21 |
 
 - 링크는 대상 프레임의 `node-id`까지 포함한다. 예: `https://www.figma.com/design/<fileKey>/<name>?node-id=<nodeId>`
 - 파일 최상단 링크만으로는 구현 대상이 확정되지 않는다. 화면·컴포넌트마다 한 행을 둔다.
 - 구현자는 이 링크의 프레임을 직접 읽고 값을 가져온다. 이 문서의 요약본이나 스크린샷만 보고 수치를 추정하지 않는다.
 - 프레임이 바뀌면 갱신일과 영향 Issue를 적고 PM에게 알린다. 구현 완료 후의 변경은 재작업 범위를 Issue에 남긴다.
 - 접근 권한·계정·토큰 값은 기록하지 않는다. 열람 권한은 저장소 밖에서 부여한다.
+
+## Team Monitor 도구 화면
+
+- 갱신: 2026-09-21, 사용자 직접 요청에 따른 Codex 구현. 제품 Todo 앱과 별도의 개발 도구 화면.
+- Figma 프레임: 1440×960, 40px 바깥 여백, 24px 열 간격. 역할 목록 / 최근 출력 / Issue의 3열 구조.
+- 배경 #f3f5f9, 본문 #17233b, 출력 패널 #101b2e. Inter와 시스템 한글 대체 글꼴 사용.
+- 웹에서는 실제 상태·갱신 시각·연결 오류를 표시. 1100px 이하에서 Issue를 아래로 이동하고 650px 이하에서 세로 배치.
+- 상태 색상과 텍스트 병기, 로그 HTML 해석 금지, 키보드 역할 선택·포커스 표시 지원.
+
+| 후속 화면 | Figma 링크 | 구현 Issue | 갱신일 |
+| --- | --- | --- | --- |
+| PM 웹 대화 + 내부 스크롤 | [PM Web Chat](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=7-5) | ISSUE-0001 | 2026-09-21 |
+
+화면 전체 높이는 100dvh, 대화 패널은 min-height:0과 내부 overflow로 제한한다. 입력창은 패널 하단에 유지한다.
+
+| 후속 화면 | Figma 링크 | 구현 Issue | 갱신일 |
+| --- | --- | --- | --- |
+| 프로젝트 문서 창 | [Project Documents](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=8-8) | ISSUE-0001 | 2026-09-21 |
+
+프로젝트 문서 창은 화면 높이의 90% 이내에서 목록과 본문을 독립 스크롤한다. 모바일은 96% 높이와 좁은 탐색 열을 사용한다.
+
+
+## 프로젝트 관리 모달
+
+- 오른쪽의 중복 프로젝트 문서 바로가기를 프로젝트 URL·시크릿 키·토큰 사용량 버튼으로 교체. 문서는 상단 버튼으로 진입.
+- 모달은 820px 이내, 높이 84dvh, 본문 독립 스크롤. 모바일은 98vw/94dvh, 사용량 카드를 세로로 배치.
+- 시크릿은 기본 마스킹. 표시·수정·삭제를 구분하고 탭 이동·닫기·30초 경과 시 값을 숨김.
+- 토큰 수치는 실제 로컬 기록, 예제 디자인 수치는 대시로 표시. 조회 불가와 기록 없음은 각각 안내.
+
+| 화면 | Figma |
+| --- | --- |
+| 프로젝트 URL | [Project Resources](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=11-58) |
+| 시크릿 키 | [Secrets](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=14-55) |
+| 토큰 사용량 | [Token Usage](https://www.figma.com/design/wSs0xJpVRe6B8TNEy0kL2G/Test?node-id=14-94) |
