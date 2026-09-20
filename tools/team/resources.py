@@ -50,7 +50,7 @@ def valid_url(value):
 
 def git_url():
     try:
-        value = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=launch.ROOT,
+        value = subprocess.run(['git', 'remote', 'get-url', 'origin'], cwd=launch.PRODUCT_ROOT,
                                capture_output=True, text=True, timeout=2, check=True).stdout.strip()
         match = re.fullmatch(r'git@([^:]+):(.+)', value)
         if match:
@@ -63,7 +63,7 @@ def git_url():
 def overview():
     with LOCK:
         data = read_store()
-        return dict(name=launch.ROOT.name, root=str(launch.ROOT),
+        return dict(name=launch.PRODUCT_ROOT.name, root=str(launch.PRODUCT_ROOT),
                     links={key: data['links'].get(key, git_url() if key == 'git' else '') for key in LINKS},
                     secrets=[dict(name=name, masked='••••••••') for name in sorted(data['secrets'])])
 

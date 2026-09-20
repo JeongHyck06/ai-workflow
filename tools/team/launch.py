@@ -12,7 +12,8 @@ import sys
 import time
 import project
 
-ROOT = project.root()
+PRODUCT_ROOT = project.root()
+ROOT = project.WORKFLOW
 STATE = ROOT / '.team-runtime'
 ROLES = {
     'pm': ('claude', 'fable', 'PM'),
@@ -24,7 +25,7 @@ ROLES = {
     'devops': ('claude', 'fable', 'DEVOPS'),
 }
 def session_name(role):
-    return project.session_prefix(ROOT) + '-' + role
+    return project.session_prefix(PRODUCT_ROOT) + '-' + role
 
 
 def prompt_for(role):
@@ -32,14 +33,18 @@ def prompt_for(role):
     sendable = ', '.join(session_name(r) for r, spec in ROLES.items() if spec[0] == 'claude')
     return (
         f'이 프로젝트의 {document} 역할 세션이다. 요청 모델은 {model}이다. '
-        f'프로젝트 루트는 {ROOT}이다. docs/README.md, docs/agents/{document}.md, '
+        f'제품 루트는 {PRODUCT_ROOT}이며 협업 작업 경로는 {ROOT}이다. '
+        f'프론트엔드 코드는 {PRODUCT_ROOT / "frontend"}, 백엔드 코드는 {PRODUCT_ROOT / "backend"}에 작성한다. '
+        f'협업 문서·설정·작업 트리는 이 작업 경로 안에서만 관리하고 제품 루트에 복사하지 마라. '
+        f'제품 Git 작업 대상은 {PRODUCT_ROOT}이며 협업 도구 저장소와 혼동하지 마라. '
+        f'docs/README.md, docs/agents/{document}.md, '
         'docs/issues/ACTIVE.md, docs/agents/TEAM_SETUP.md를 읽어라. '
         '이번 입력은 팀 초기화만 요청한다. 역할, 모델, 읽은 문서, 할당 Issue 유무를 보고하고 '
         '다음 입력을 기다려라. 요구사항·기술 스택·Issue를 임의로 만들거나 기능 구현, '
         'Git 변경, 배포를 시작하지 마라. 다른 세션을 추가 생성하거나 setup을 재호출하지 마라. '
         '실제 작업은 이후 PM의 명시적 할당과 사용자 요청 범위에 따라 진행한다. '
         '세션 간 공유 기록은 docs를 사용한다. 민감값을 기록하지 마라. '
-        f'다른 역할 세션의 이름은 {project.session_prefix(ROOT)}-<role>이며 {sendable}에 메시지를 보낼 수 있다. '
+        f'다른 역할 세션의 이름은 {project.session_prefix(PRODUCT_ROOT)}-<role>이며 {sendable}에 메시지를 보낼 수 있다. '
         '사용자와 직접 소통하는 역할은 PM뿐이다. PM은 요청·질문·진행·승인·결과를 취합한다. '
         '다른 역할은 준비 상태와 질문·완료·차단 사유를 PM에게 보고하고 사용자에게 직접 입력을 요구하지 마라. '
         'QA는 Codex라 메시지 대상이 아니다. PM이 통신 연결 부재를 차단 사유로 관리하며 사용자에게 중계를 요구하지 마라.'
@@ -60,7 +65,7 @@ def clean_env():
     env = os.environ.copy()
     for key in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT', 'CODEX_THREAD_ID'):
         env.pop(key, None)
-    env['TEAM_PROJECT_ROOT'] = str(ROOT)
+    env['TEAM_PROJECT_ROOT'] = str(PRODUCT_ROOT)
     return env
 
 
@@ -160,7 +165,7 @@ def run_role(role, executable):
 
 
 def open_terminal(role, executable):
-    command = shlex.join(['env', 'TEAM_PROJECT_ROOT=' + str(ROOT), sys.executable, str(Path(__file__).resolve()),
+    command = shlex.join(['env', 'TEAM_PROJECT_ROOT=' + str(PRODUCT_ROOT), sys.executable, str(Path(__file__).resolve()),
                          'run-role', role, '--executable', executable])
     # Pass the shell command as an AppleScript argument, never interpolate script source.
     script = ('on run argv\n'

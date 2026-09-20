@@ -11,6 +11,29 @@ spec.loader.exec_module(workflow)
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_start_launches_team_then_monitor(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as temp, patch.dict('os.environ', {}, clear=True), \
+                patch.object(workflow.sys, 'argv', ['workflow.py', 'start', '--project', temp]), \
+                patch.object(workflow, 'initialize') as initialize, \
+                patch.object(workflow.socket, 'socket'), \
+                patch.object(workflow.subprocess, 'run', return_value=SimpleNamespace(returncode=0)) as team, \
+                patch.object(workflow.os, 'execv') as monitor:
+            workflow.main()
+            initialize.assert_called_once_with(Path(temp).resolve())
+            self.assertIn('team', team.call_args.args[0])
+            self.assertEqual(team.call_args.kwargs['cwd'], workflow.WORKFLOW)
+            self.assertIn(str(workflow.WORKFLOW/'tools/team/dashboard.py'),monitor.call_args.args[1])
+
+    def test_roles_use_tool_cwd_and_explicit_product_paths(self):
+        import launch
+        with patch.object(launch,'PRODUCT_ROOT',Path('/products/todo')):
+            prompt=launch.prompt_for('pm')
+            self.assertIn('/products/todo/frontend',prompt)
+            self.assertIn('/products/todo/backend',prompt)
+            self.assertIn(str(launch.ROOT),launch.command_for('qa','codex'))
+            self.assertEqual(launch.clean_env()['TEAM_PROJECT_ROOT'],'/products/todo')
+
     def test_existing_team_is_reused_and_summary_completes(self):
         import launch
         with tempfile.TemporaryDirectory() as temp, patch.object(launch, 'STATE', Path(temp)), \
@@ -22,20 +45,24 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(launch.launch('claude'), 0)
             start.assert_not_called()
 
-    def test_initialization_is_repeatable_and_preserves_existing_rules(self):
+    def test_initialization_is_repeatable_and_keeps_files_inside_workflow(self):
+        import shutil
         with tempfile.TemporaryDirectory() as temp:
-            root=Path(temp).resolve()/'todo';rules=root/'docs/agents/GIT.md'
-            rules.parent.mkdir(parents=True);rules.write_text('existing PR rules')
-            with patch.object(project,'CONFIG',Path(temp)/'config.json'):
+            root=Path(temp).resolve()/'todo';clone=root/'ai-workflow'
+            clone.mkdir(parents=True)
+            shutil.copytree(project.WORKFLOW/'templates',clone/'templates')
+            rules=clone/'docs/agents/GIT.md'
+            rules.parent.mkdir(parents=True);rules.write_text('existing tool docs')
+            with patch.object(workflow,'WORKFLOW',clone), patch.object(project,'CONFIG',clone/'.workflow-project.json'):
                 workflow.initialize(root)
+                rules.write_text('project PR rules')
                 workflow.initialize(root)
-            self.assertEqual(rules.read_text(),'existing PR rules')
-            self.assertTrue((root/'app').is_dir())
-            self.assertTrue((root/'backend').is_dir())
-            self.assertNotIn('## ISSUE-0001',(root/'docs/issues/ACTIVE.md').read_text())
-            self.assertNotIn('wSs0xJpVRe6B8TNEy0kL2G',(root/'docs/product/DESIGN_SYSTEM.md').read_text())
-            self.assertEqual((root/'.gitignore').read_text().count('/.team-runtime/'),1)
-            self.assertIn(str(root),(root/'.agents/skills/setup/SKILL.md').read_text())
+            self.assertEqual(rules.read_text(),'project PR rules')
+            self.assertEqual({p.name for p in root.iterdir()},{'ai-workflow','frontend','backend'})
+            self.assertEqual((clone/'.team-runtime/bootstrap-backup/docs/agents/GIT.md').read_text(),'existing tool docs')
+            self.assertNotIn('## ISSUE-0001',(clone/'docs/issues/ACTIVE.md').read_text())
+            self.assertIn(str(root/'frontend'),(clone/'docs/agents/FRONTEND.md').read_text())
+            self.assertEqual((clone/'.gitignore').read_text().count('/.team-runtime/'),1)
 
     def test_project_configuration_and_environment_are_isolated(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(project,'CONFIG',Path(temp)/'config.json'), patch.dict('os.environ',{},clear=True):
@@ -64,7 +91,7 @@ class WorkflowTests(unittest.TestCase):
             for name in ('tools','templates'):
                 shutil.copytree(project.WORKFLOW/name,clone/name,ignore=shutil.ignore_patterns('__pycache__'))
             env=os.environ.copy();env.pop('TEAM_PROJECT_ROOT',None)
-            process=subprocess.Popen([sys.executable,str(clone/'workflow.py'),'start','--port','0'],
+            process=subprocess.Popen([sys.executable,str(clone/'workflow.py'),'start','--monitor-only','--port','0'],
                                      stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=env)
             try:
                 output=b'';deadline=time.monotonic()+10
@@ -76,10 +103,11 @@ class WorkflowTests(unittest.TestCase):
                 self.assertEqual(data['root'],str(root))
                 self.assertEqual(data['secrets'],[])
                 self.assertEqual(data['links'],dict(git='',figma='',deploy=''))
-                self.assertTrue((root/'app').is_dir())
+                self.assertTrue((root/'frontend').is_dir())
                 self.assertTrue((root/'backend').is_dir())
-                self.assertIn('- 현재 등록된 Issue: 없음',(root/'docs/issues/ACTIVE.md').read_text())
-                self.assertEqual((root/'docs/agents/GIT.md').read_bytes(),(project.WORKFLOW/'docs/agents/GIT.md').read_bytes())
+                self.assertEqual({p.name for p in root.iterdir()},{'workflow','frontend','backend'})
+                self.assertIn('- 현재 등록된 Issue: 없음',(clone/'docs/issues/ACTIVE.md').read_text())
+                self.assertEqual((clone/'docs/agents/GIT.md').read_bytes(),(project.WORKFLOW/'docs/agents/GIT.md').read_bytes())
             finally:
                 process.terminate();process.wait(timeout=5)
                 process.stdout.close();process.stderr.close()

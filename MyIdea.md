@@ -2,12 +2,12 @@
 
 내가 직접 쓰는 원료 메모다. 확정 원본이 아니다. PM이 여기를 읽고 아래로 배분한 뒤에는 각 문서를 따른다.
 
-| 여기 적은 것 | 배분될 문서 |
-| --- | --- |
-| 아이디어·목표·제약 | [REQUIREMENTS](docs/product/REQUIREMENTS.md) |
-| 기능 | [FEATURES](docs/product/FEATURES.md) |
+| 여기 적은 것         | 배분될 문서                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------- |
+| 아이디어·목표·제약   | [REQUIREMENTS](docs/product/REQUIREMENTS.md)                                           |
+| 기능                 | [FEATURES](docs/product/FEATURES.md)                                                   |
 | 화면·디자인 요구사항 | [DESIGN_SYSTEM](docs/product/DESIGN_SYSTEM.md), [USER_FLOW](docs/product/USER_FLOW.md) |
-| 기술 스택 | [OVERVIEW](docs/architecture/OVERVIEW.md) |
+| 기술 스택            | [OVERVIEW](docs/architecture/OVERVIEW.md)                                              |
 
 ## 아이디어
 
@@ -22,7 +22,7 @@
 ## 디자인 요구사항
 
 - 참고 서비스·레퍼런스:
-- 분위기·톤:
+- 분위기·톤: 차가운 톤
 - 작업할 Figma 파일 링크 (디자이너가 여기에 그린다. 없으면 비워둬도 새로 만든다):
 - 필수 화면:
 

@@ -89,7 +89,7 @@ def snapshot():
     except OSError:
         issues = '진행 Issue 문서를 읽을 수 없습니다.'
     return dict(roles=rows, issues=issues, updated=time.time(), error=error,
-                project=dict(name=launch.ROOT.name, root=str(launch.ROOT)))
+                project=dict(name=launch.PRODUCT_ROOT.name, root=str(launch.PRODUCT_ROOT)))
 
 
 class Monitor:
