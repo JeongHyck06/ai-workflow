@@ -1,6 +1,8 @@
 'use strict';
 (() => {
   const el=id=>document.getElementById(id), dialog=el('resources-dialog');
+  let designRevision='', designOriginal='', designSaving=false;
+  let stackRevision='', stackOriginal='', stackSaving=false;
   let generation=0, opener=null, active='links', hideTimer=null, ready=false;
   const status=text=>{el('resource-status').textContent=text;};
   async function api(path,body){
@@ -41,8 +43,34 @@
       for(const item of data.providers){const card=document.createElement('div');card.className='usage-card';const title=document.createElement('h3');title.textContent=item.provider;card.append(title);if(!item.available){const p=document.createElement('p');p.textContent=item.partial?'기록을 조회할 수 없습니다.':'사용량이 기록된 세션이 없습니다.';card.append(p);}else{const total=document.createElement('strong');total.textContent=(item.input+item.output).toLocaleString('ko-KR')+' tokens';card.append(total);const dl=document.createElement('dl');for(const [label,value] of [['입력 (캐시 포함)',item.input],['출력',item.output],['캐시 읽기 (입력 중)',item.cached],['집계 세션',item.sessions]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value.toLocaleString('ko-KR');dl.append(dt,dd);}card.append(dl);if(item.partial){const p=document.createElement('p');p.textContent='일부 기록을 읽지 못해 집계에서 제외했습니다.';card.append(p);}}el('usage-cards').append(card);}
     }catch(error){if(version===generation)el('usage-scope').textContent=error.message;}finally{el('usage-refresh').disabled=false;}
   }
-  function select(name){active=name;mask();el('secret-value').value='';status('');for(const b of dialog.querySelectorAll('[data-resource-tab]')){const on=b.dataset.resourceTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;el('panel-'+b.dataset.resourceTab).hidden=!on;}if(name==='usage')loadUsage();}
-  for(const [key,label,placeholder] of [['git','프로젝트 Git 저장소 (선택)','https://github.com/…'],['backend','백엔드 Git 저장소','https://github.com/…'],['frontend','프론트엔드 Git 저장소','https://github.com/…'],['app','App Git 저장소','https://github.com/…'],['figma','Figma 디자인','https://www.figma.com/design/…'],['deploy','배포 URL (선택)','https://…']]){const row=document.createElement('div');row.className='url-field';const l=document.createElement('label');l.htmlFor='url-'+key;l.textContent=label;const input=document.createElement('input');input.id='url-'+key;input.type='url';input.placeholder=placeholder;input.maxLength=2000;input.addEventListener('input',updateLinks);const a=document.createElement('a');a.id='open-'+key;a.textContent='열기 ↗';a.target='_blank';a.rel='noopener noreferrer';a.hidden=true;row.append(l,input,a);el('link-fields').append(row);}
+  async function loadStack(){
+    if(stackSaving)return;
+    if(el('stack-content').value!==stackOriginal&&!confirm('저장하지 않은 기술스택 변경을 버리고 다시 불러올까요?'))return;
+    const version=generation;el('stack-save').disabled=true;
+    try{const data=await api('/api/stack');if(version!==generation)return;stackRevision=data.revision;stackOriginal=data.content;el('stack-content').value=data.content;el('stack-save').disabled=false;}
+    catch(error){status(error.message);}
+  }
+  el('stack-refresh').addEventListener('click',loadStack);
+  el('stack-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(stackSaving)return;stackSaving=true;el('stack-save').disabled=true;el('stack-content').readOnly=true;const version=generation;
+    try{const data=await api('/api/stack',{content:el('stack-content').value,revision:stackRevision});if(version!==generation)return;stackRevision=data.revision;stackOriginal=data.content;status('기술스택 문서에 반영했습니다.');}
+    catch(error){status(error.message);}finally{stackSaving=false;el('stack-save').disabled=false;el('stack-content').readOnly=false;}
+  });
+  async function loadDesign(){
+    if(designSaving)return;
+    if(el('design-content').value!==designOriginal&&!confirm('저장하지 않은 디자인 프롬프트 변경을 버리고 다시 불러올까요?'))return;
+    const version=generation;el('design-save').disabled=true;
+    try{const data=await api('/api/design-prompt');if(version!==generation)return;designRevision=data.revision;designOriginal=data.content;el('design-content').value=data.content;el('design-save').disabled=false;}
+    catch(error){status(error.message);}
+  }
+  el('design-refresh').addEventListener('click',loadDesign);
+  el('design-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(designSaving)return;designSaving=true;el('design-save').disabled=true;el('design-content').readOnly=true;const version=generation;
+    try{const data=await api('/api/design-prompt',{content:el('design-content').value,revision:designRevision});if(version!==generation)return;designRevision=data.revision;designOriginal=data.content;status('디자인 프롬프트 문서에 반영했습니다.');}
+    catch(error){status(error.message);}finally{designSaving=false;el('design-save').disabled=false;el('design-content').readOnly=false;}
+  });
+  function select(name){active=name;mask();el('secret-value').value='';status('');for(const b of dialog.querySelectorAll('[data-resource-tab]')){const on=b.dataset.resourceTab===name;b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1;el('panel-'+b.dataset.resourceTab).hidden=!on;}if(name==='usage')loadUsage();if(name==='stack')loadStack();if(name==='design')loadDesign();}
+  for(const [key,label,placeholder] of [['git','프로젝트 Git 저장소 (선택)','https://github.com/…'],['backend','백엔드 Git 저장소','https://github.com/…'],['frontend','프론트엔드 Git 저장소','https://github.com/…'],['app','App Git 저장소','https://github.com/…'],['figma','Figma 디자인','https://www.figma.com/design/…'],['deploy','배포 URL (선택)','https://…']]){const row=document.createElement('div');row.className='url-field';const l=document.createElement('label');l.htmlFor='url-'+key;l.textContent=label;const input=document.createElement('input');input.id='url-'+key;input.type='url';input.placeholder=placeholder;input.maxLength=2000;input.addEventListener('input',updateLinks);const a=document.createElement('a');a.id='open-'+key;a.textContent='열기 ↗';a.target='_blank';a.rel='noopener noreferrer';a.hidden=true;const check=document.createElement('small');check.id='check-'+key;check.setAttribute('role','status');row.append(l,input,a,check);el('link-fields').append(row);}
   for(const b of document.querySelectorAll('[data-resources]'))b.addEventListener('click',async()=>{opener=document.activeElement;generation++;ready=false;dialog.showModal();select(b.dataset.resources);try{await load();}catch(error){status(error.message);}});
   const tabs=[...dialog.querySelectorAll('[data-resource-tab]')];
   tabs.forEach((b,i)=>{b.addEventListener('click',()=>select(b.dataset.resourceTab));b.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const n=event.key==='Home'?0:event.key==='End'?tabs.length-1:(i+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[n].focus();select(tabs[n].dataset.resourceTab);});});
@@ -52,6 +80,6 @@
   el('usage-refresh').addEventListener('click',loadUsage);
   for(const [form,body] of [['links-form',()=>({action:'links',links:Object.fromEntries(['git','backend','frontend','app','figma','deploy'].map(k=>[k,el('url-'+k).value.trim()]))})],['secret-form',()=>({action:'save-secret',name:el('secret-name').value.trim(),value:el('secret-value').value})]])el(form).addEventListener('submit',async event=>{
     event.preventDefault();if(!ready){status('설정을 먼저 불러와야 합니다. 창을 다시 열어주세요.');return;}const submit=event.submitter;submit.disabled=true;const version=generation;
-    try{await api('/api/resources',body());if(version!==generation)return;if(form==='secret-form')el(form).reset();await load();status('저장했습니다.');}catch(error){if(version===generation)status(error.message);}finally{submit.disabled=false;}
+    try{const saved=await api('/api/resources',body());if(version!==generation)return;if(form==='secret-form')el(form).reset();await load();status(saved.checks?'저장 및 연결 확인을 마쳤습니다.':'저장했습니다.');if(saved.checks)for(const [key,message] of Object.entries(saved.checks))el('check-'+key).textContent=message;}catch(error){if(version===generation)status(error.message);}finally{submit.disabled=false;}
   });
 })();

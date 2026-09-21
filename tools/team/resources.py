@@ -6,6 +6,9 @@ import tempfile
 import threading
 from urllib.parse import urlsplit
 import subprocess
+from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import HTTPError, URLError
+from concurrent.futures import ThreadPoolExecutor
 import launch
 
 LOCK = threading.RLock()
@@ -101,3 +104,37 @@ def update(body):
             raise ValueError('허용되지 않은 설정 작업입니다.')
         write_store(data)
         return {'ok': True}
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def check_link(item):
+    key, url = item
+    if not url:
+        return key, '미등록'
+    try:
+        request = Request(valid_url(url), method='HEAD', headers={'User-Agent': 'TeamMonitor/1.0'})
+        with build_opener(NoRedirect).open(request, timeout=5) as response:
+            code = response.status
+    except HTTPError as error:
+        code = error.code
+    except (OSError, ValueError, URLError):
+        return key, '연결 확인 실패 · 주소 또는 네트워크 확인'
+    if 200 <= code < 300:
+        return key, '연결 확인됨'
+    if 300 <= code < 400:
+        return key, '응답 확인 · 이동 또는 로그인 필요'
+    if code in (401, 403):
+        return key, '로그인 또는 접근 권한 필요'
+    if code == 404:
+        return key, '찾을 수 없음 · 비공개 저장소는 로그인 후 확인'
+    return key, f'자동 확인 불가 (HTTP {code}) · 열기로 확인'
+
+
+def check_links():
+    links = overview()['links']
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        return dict(pool.map(check_link, links.items()))

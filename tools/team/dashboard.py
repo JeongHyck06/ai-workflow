@@ -15,6 +15,8 @@ import threading
 import time
 import launch
 import documents
+import tech_stack
+import design_prompt
 import qa_logs
 import resources
 import usage
@@ -142,10 +144,16 @@ class Handler(BaseHTTPRequestHandler):
             except (OSError, ValueError, KeyError, TypeError):
                 self.json_response(dict(error='프로젝트 설정을 읽을 수 없습니다.'), 500)
             return
+        if path in ('/api/stack', '/api/design-prompt'):
+            try:
+                self.json_response((tech_stack if path == '/api/stack' else design_prompt).read())
+            except (OSError, ValueError):
+                self.json_response(dict(error='공용 문서를 읽지 못했습니다.'), 400)
+            return
         if path in ('/api/docs', '/api/doc'):
             try:
                 if path == '/api/docs':
-                    self.json_response(dict(documents=documents.index()))
+                    self.json_response(dict(documents=documents.index(), project=str(launch.ROOT.resolve())))
                 else:
                     name = parse_qs(urlparse(self.path).query).get('path', [''])[0]
                     self.json_response(documents.read(name))
@@ -205,13 +213,22 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get('Content-Length', '0'))
-            if not 0 < length <= 65536 or self.headers.get('Content-Type') != 'application/json':
+            if not 0 < length <= (6_100_000 if self.path == '/api/doc' else 65536) or self.headers.get('Content-Type') != 'application/json':
                 raise ValueError('Invalid request')
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict):
                 raise ValueError('Invalid body')
             if self.path == '/api/resources':
-                self.json_response(resources.update(body))
+                result = resources.update(body)
+                if body.get('action') == 'links':
+                    result['checks'] = resources.check_links()
+                self.json_response(result)
+                return
+            if self.path in ('/api/stack', '/api/design-prompt'):
+                self.json_response((tech_stack if self.path == '/api/stack' else design_prompt).save(body))
+                return
+            if self.path == '/api/doc':
+                self.json_response(documents.save(body))
                 return
             if self.path == '/api/pm/connect':
                 self.json_response(dict(connection=connections.connect()))

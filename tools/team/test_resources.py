@@ -45,3 +45,11 @@ class ResourceTests(unittest.TestCase):
         self.assertEqual(links['backend'],'https://github.com/org/backend')
         self.assertEqual(links['frontend'],'https://github.com/org/frontend')
         self.assertEqual(links['app'],'https://github.com/org/app')
+
+    def test_link_check_reports_auth_and_missing_without_following_redirect(self):
+        from urllib.error import HTTPError
+        for code, expected in [(403,'권한'),(404,'비공개'),(302,'이동')]:
+            with patch('resources.build_opener') as opener:
+                opener.return_value.open.side_effect=HTTPError('https://example.com',code,'test',{},None)
+                self.assertIn(expected,resources.check_link(('git','https://example.com'))[1])
+        self.assertEqual(resources.check_link(('git','')),('git','미등록'))

@@ -39,3 +39,28 @@ class DocumentsTests(unittest.TestCase):
     def test_symlink_outside_docs_blocked(self):
         (self.root/'docs/leak.md').symlink_to(self.root/'secret.txt')
         with self.assertRaises(FileNotFoundError):documents.read('docs/leak.md')
+
+    def test_save_and_conflict_preserve_newer_content(self):
+        path='docs/agents/GIT.md'
+        old=documents.read(path)
+        saved=documents.save(dict(path=path,content='# Saved',revision=old['revision']))
+        self.assertEqual(saved['content'],'# Saved')
+        with self.assertRaises(RuntimeError):
+            documents.save(dict(path=path,content='overwrite',revision=old['revision']))
+        self.assertEqual(documents.read(path)['content'],'# Saved')
+
+    def test_save_cannot_write_arbitrary_files(self):
+        with self.assertRaises(FileNotFoundError):
+            documents.save(dict(path='../secret.txt',content='bad',revision=''))
+        self.assertEqual((self.root/'secret.txt').read_text(),'private')
+
+    def test_index_revision_detects_content_change_with_same_timestamp(self):
+        import os
+        path=self.root/'docs/agents/GIT.md'
+        before=next(d for d in documents.index() if d['path']=='docs/agents/GIT.md')
+        stamp=path.stat()
+        path.write_text('# New rules')
+        os.utime(path,ns=(stamp.st_atime_ns,stamp.st_mtime_ns))
+        after=next(d for d in documents.index() if d['path']=='docs/agents/GIT.md')
+        self.assertNotEqual(before['revision'],after['revision'])
+        self.assertEqual(after['revision'],documents.read('docs/agents/GIT.md')['revision'])
